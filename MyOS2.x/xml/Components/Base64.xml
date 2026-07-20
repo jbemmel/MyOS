@@ -1,0 +1,13 @@
+<context name="Decoding/Base64">
+<component name="Base64" uuid="400368fd-5c1e-4cb0-8a7e-04dce188b23a">
+<version vendor="MyOS" major="1" minor="1"/>
+<requires>
+ <interfaceref name="IDisplay" uuid="abe1beba-0457-4375-8a3e-48809a0d5838"/>
+ <interfaceref name="IVirtualMemory" uuid="2a147d6f-cab0-43b8-8b9f-4687312c101d"/>
+ <new blockorder="0"/>
+</requires> 
+<provides>
+ <interfaceref name="IBase64" uuid="fe310684-a446-45a7-9e38-d7556e966166"/>
+</provides>
+</component>
+</context>

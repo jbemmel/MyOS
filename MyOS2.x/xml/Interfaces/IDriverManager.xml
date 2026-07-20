@@ -1,0 +1,6 @@
+<context name="Drivers">
+<interface uuid="adf79a36-5871-11d6-858d-0010a708e02f" name="IDriverManager" url="http://www.myos.org/Interfaces" version="1">
+ <native file="Drivers/IDriverManager.inc"/>
+ <method name="listInstalledDrivers" kind="get" stream="true"/>
+</interface>
+</context>

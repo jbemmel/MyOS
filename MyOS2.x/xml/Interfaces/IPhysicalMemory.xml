@@ -1,0 +1,7 @@
+<context name="MM">
+<interface name="IPhysicalMemory" uuid="e87d9b4e-9a74-40a0-93ef-4f1c1d47d2e8" url="http://www.myos.org/Interfaces" version="1">
+	<native file="MM/Physical/IPhysicalMemory.inc"/>
+	<method name="listTables" kind="get" stream="true"/>
+	<method name="getStatistics" kind="get" stream="true"/>
+</interface>
+</context>

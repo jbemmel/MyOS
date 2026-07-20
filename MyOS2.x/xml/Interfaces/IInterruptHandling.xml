@@ -1,0 +1,37 @@
+<context name="InterruptHandling">
+<interface uuid="26468cf9-fa5b-4de7-9914-eec11e667215" name="IInterruptHandling" url="http://www.myos.org/Interfaces" version="1">
+<native file="InterruptHandling/IInterruptHandling.inc"/>
+<method name="enableIRQ" kind="put" remote="false">	<!-- Could be remote! -->
+ <params><param name="irq" type="E_IRQ"/></params>
+</method>
+<method name="disableIRQ" kind="put" remote="false">
+ <params><param name="irq" type="E_IRQ"/></params>
+</method>
+<method name="setIRQHandler" kind="put" remote="false">
+ <params>
+  <param name="irq" type="E_IRQ"/>
+  <param name="context" type="IInterruptContext&amp;"/>
+  <param name="flags" type="u32"/>
+ </params>
+</method>
+<method name="removeIRQHandler" kind="put" remote="false">
+ <params><param name="irq" type="E_IRQ"/></params>
+</method>
+<method name="setTrapHandler" kind="put" remote="false">
+ <params>
+  <param name="trap" type="E_INTCODES"/>
+  <param name="handler" type="myos_TRAP_f"/>
+  <param name="flags" type="u32"/>
+ </params>
+</method>
+<method name="removeTrapHandler" kind="put" remote="false">
+ <params><param name="trap" type="E_INTCODES"/></params>
+</method>
+<method name="setAPICHandler" kind="put" remote="false">
+ <params>
+  <param name="context" type="IInterruptContext&amp;"/>
+ </params>
+</method>
+
+</interface>
+</context>

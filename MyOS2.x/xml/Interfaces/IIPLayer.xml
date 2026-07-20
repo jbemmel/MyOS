@@ -1,0 +1,6 @@
+<context name="Networking/IP">
+<interface name="IIPLayer" uuid="77745694-3afa-42eb-81f2-167936737a67" url="http://www.myos.org/Interfaces" version="1">
+ <servicePoint/>
+ <native file="Networking/IP/IIPLayer.inc"/>
+</interface>
+</context>

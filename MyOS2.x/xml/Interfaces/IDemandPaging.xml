@@ -1,0 +1,5 @@
+<context name="MM">
+<interface name="IDemandPaging" uuid="c5f5093d-07d2-4b5e-8b01-e77406bfa43e" url="http://www.myos.org/Interfaces" version="1">
+	<native file="MM/Paging/IDemandPaging.inc"/>
+</interface>
+</context>

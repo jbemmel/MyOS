@@ -1,0 +1,248 @@
+#include "Timer.h"
+#include "Atomic/AtomicQueue.h"
+#include "Timing/TimingComponent.h"
+#include "TimerEvent.h"
+#include "TSC.h"
+#include "TimeUtil.h"
+#include "Processor/Processor.h"
+
+#include "debug.h"
+
+namespace MyOS { namespace Timing {
+
+Timer* Timer::instance;
+
+/**
+ * Communication with synchronous contexts is done using a stack-allocated
+ * atomic linked list of 'command' nodes
+ */
+class CommandNode : public /* AtomicQueue::Node */ Queue::Item
+{
+public:   
+   TimerEvent& event;
+
+   // Cannot use the priority in the event itself, since that would violate
+   // heap order (for updating events that are already in the heap)
+   u64 time;   // aligned
+
+   enum  E_COMMAND { E_ADD, E_UPDATE, E_REMOVE, E_TRIGGER } command;
+   
+   // for REMOVE or trigger
+   CommandNode( TimerEvent& e, E_COMMAND c ) 
+      : event(e), command(c) {}
+
+   // for ADD or UPDATE
+   CommandNode( TimerEvent& e, u64 newtime, E_COMMAND c ) 
+      : event(e), time(newtime), command(c) {}
+   
+};
+
+Timer::Timer() // INITSECTION
+{
+   instance = this;   
+}
+
+void
+Timer::init()  // INITSECTION
+{
+   timer.init( TimingComponent::getInstance().getInterruptHandling(), *this );
+
+   // XX This class should be in INITSECTION...
+   class MeasureEvent : public TimerEvent {
+
+      u64 starttime;    // aligned
+      Timer& timer;
+
+   public:      
+      volatile bool done;
+   
+      MeasureEvent( Timer& t ) : timer(t), done(false) { starttime = TSC::read(); }
+      virtual MyOS::MultiThreading::Thread* onTimer() {
+         u32 ips = timer.converter.initOnce( TSC::read() - starttime );
+         TimeUtil::initIPS( ips );
+         done = true;
+         return 0;
+      }      
+   } probe( *this );   
+
+   eventHeap.push( &probe );
+   probe.setPriority( TSC::read() );      // ASAP !
+   Processor::allowInterrupts( true );
+   timer.doMaxPeriod();   
+
+#ifdef CONFIG_IDisplay
+   IO::ScreenBuffer::getInstance().put(0,IO::ScreenBuffer::E_SCREENWIDTH-1,'\03', IO::E_RED );
+#endif
+
+   // XX function cannot return until probe has fired! Bit waste of time...
+   while (!probe.done);   
+
+#ifdef CONFIG_IDisplay
+   IO::ScreenBuffer::getInstance().put(0,2,'\001', IO::E_YELLOW | IO::E_BG_BLUE );
+#endif
+      
+}
+
+// virtual, (usually) **ASYNC** context but also sw triggered
+MyOS::MultiThreading::Thread* 
+Timer::onInterrupt( ISupportFunctions& helpers )
+{
+   // bool hw = IInterruptHandling::isHardwareIRQ();
+   // DPRINTK( "\nTimer::onInterrupt hw=%b", hw );
+
+   // process any pending commands
+   // DPRINTK( "\nHeapsize=%d", pending.getSize() );
+   CommandNode* c;
+   while ((c = (CommandNode*) pending.dequeue()))
+   {
+      TimerEvent* e = &c->event;
+      switch (c->command) {
+      case CommandNode::E_ADD:
+         
+         // could call onTimer_addEvent instead (except for recalculated time)
+      
+         if (e->inHeap()) {   // Can happen when canceled but not yet removed
+            e->uncancel();    // clear cancel flag(!)
+            eventHeap.update( e, c->time );
+         } else {
+            e->setPriority( c->time );
+            eventHeap.push( e );
+         }            
+         break;
+
+      case CommandNode::E_REMOVE:            
+         eventHeap.pop( e );
+         DPRINTK( "\nEvent %x removed with force", e );
+         break;
+
+      case CommandNode::E_TRIGGER:
+         //eventHeap.pop( e );
+         //return e->onTimer();    // XX Need to finish processing the queue!
+         eventHeap.update( e, TSC::read() );
+         break;         
+      
+      case CommandNode::E_UPDATE:
+         // ASSERTION( e->inHeap(), E_ERROR ); normally, but not required
+         // DPRINTK( "\nTimer::update ticksleft=" ); DPRINTN( c->time - TSC::read() );
+         eventHeap.update( e, c->time );
+         break;
+      }
+   }
+
+   // Before doing any calculations, remove any canceled events
+   TimerEvent* next;
+   do {
+      next = (TimerEvent*) eventHeap.top();
+      if (next) {
+         if (next->isCanceled()) eventHeap.pop( next );
+         else break;
+      } else {   // heap empty now, let timer do max period
+         CHECKPOINT('T');
+        
+         // make heart blink
+         #ifdef CONFIG_IDisplay
+         IO::ScreenBuffer::getInstance().xorput(0,IO::ScreenBuffer::E_SCREENWIDTH-1,'#');
+         #endif
+                
+         timer.doMaxPeriod();
+         return 0;          
+      }
+   } while (1);
+
+   // maybe abort here in case of sw ints ??
+          
+   s64 time_left = next->getPriority() - TSC::read() - TIMER_OVERHEAD_TICKS;
+   if (time_left < (int) (converter.getMinPeriodInIPS())) {
+      
+      // fire now, reprogram timer for next event (again, filter canceled ones)
+      // DPRINTK( "\nTimer::fire time_left=%d", (s32) time_left );
+      
+      eventHeap.pop( next );
+      do {
+         TimerEvent* after = (TimerEvent*) eventHeap.top();
+         if (!after) {
+            timer.doMaxPeriod();
+            return next->onTimer();   // fire! or maybe fire in series ??
+         } else if (after->isCanceled()) {
+            eventHeap.pop( after );
+         } else {
+            time_left = after->getPriority() - TIMER_OVERHEAD_TICKS;
+            timer.setTimer( converter.ipsToTicksWithMax( time_left ) );
+            return next->onTimer();   // fire!            
+         }
+      } while (1);
+      
+   } else {    // not time yet, reprogram timer and keep on trying
+      timer.setTimer( converter.ipsToTicksWithMax( time_left ) );
+   }   
+   return 0;
+}
+
+void
+Timer::addEvent( TimerEvent& e, u32 usAfterNow )
+{
+   // PRINTK( "\naddEvent event=%x usAfterNow=%d", &e, usAfterNow );
+   
+   // XX careful: The event might still be in the heap! (after being canceled)
+   // e.setPriority( TimeUtil::convertTime<us>( afterUs ) + TSC::read() );      
+   
+   // allocate command node on the stack
+   CommandNode c(e, TimeUtil::convertTime<us>( usAfterNow ) + TSC::read(), CommandNode::E_ADD );
+   pending.enqueue( c );
+   TimingComponent::getInstance().getInterruptHandling().triggerIRQ( E_IRQ0 );
+}
+
+void
+Timer::onTimer_addEvent( TimerEvent& e, u32 usAfterNow )
+{
+   u64 abstime = TimeUtil::convertTime<us>( usAfterNow ) + TSC::read();
+   if (e.inHeap()) {   // Can happen when canceled but not yet removed
+      e.uncancel();    // clear cancel flag(!)
+      eventHeap.update( &e, abstime );
+   } else {
+      e.setPriority( abstime );
+      eventHeap.push( &e );
+   }
+}
+
+
+void 
+Timer::updateEvent( TimerEvent& e, u32 usAfterNow )
+{
+   DPRINTK( "\nTimer::updateEvent usAfterNow=%d ticks=%x", 
+      usAfterNow, TimeUtil::convertTime<us>( usAfterNow ) );   
+   
+   // allocate command node on the stack
+   CommandNode c(e,TimeUtil::convertTime<us>( usAfterNow ) + TSC::read(),CommandNode::E_UPDATE);
+   pending.enqueue( c );
+   TimingComponent::getInstance().getInterruptHandling().triggerIRQ( E_IRQ0 );
+}
+
+void 
+Timer::cancelEvent( TimerEvent& e, bool remove )
+{
+   // Cancellation is implemented by setting a flag bit in the event, 
+   // and checking this bit before firing the event.
+   // However, in some cases a forced removal is needed (eg when TimerEvent
+   // storage is deallocated)
+   
+   if (remove) {
+      CommandNode c(e,CommandNode::E_REMOVE);
+      pending.enqueue( c );
+      TimingComponent::getInstance().getInterruptHandling().triggerIRQ( E_IRQ0 );            
+   } else {
+      e.cancel();    // XX if e==current, we could reprogram the timer now     
+   }   
+}
+
+void 
+Timer::triggerEvent( TimerEvent& e )
+{
+   CommandNode c(e,CommandNode::E_TRIGGER);
+   pending.enqueue( c );
+   TimingComponent::getInstance().getInterruptHandling().triggerIRQ( E_IRQ0 );            
+}
+
+
+  
+}} // namespace

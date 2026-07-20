@@ -1,0 +1,15 @@
+<context name="Services/Network/TCP">
+<service name="TCP" uuid="99d5be5c-57bc-48e0-ad35-c67d97a32cf0">
+<version vendor="MyOS" major="1" minor="1"/>
+<requires>
+ <interfaceref name="IVirtualMemory" context="MM" uuid="2a147d6f-cab0-43b8-8b9f-4687312c101d"/>
+ <new blockorder="0"/>
+ <interfaceref name="IMultiThreading" context="MultiThreading" uuid="3db93a90-a7c1-41df-9029-4e3895f9fab2"/>
+ <interfaceref name="ITiming" context="Timer" uuid="cd5a76a0-bf79-4750-8356-9f8a0627465a"/>
+</requires>
+<targets>
+ <!-- These are interfaces with which the service will register itself -->
+ <interfaceref name="IIPLayer" context="Networking/IP" uuid="77745694-3afa-42eb-81f2-167936737a67" version="1.1"/>
+</targets>
+</service>
+</context>

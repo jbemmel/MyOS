@@ -1,0 +1,13 @@
+<context name="MultiProcessing">
+<component name="MP" uuid="ba2161d8-487c-426d-8465-64e0f722ce40">
+<version vendor="MyOS" major="1" minor="1"/>
+<requires>
+ <interfaceref name="IVirtualMemory" uuid="2a147d6f-cab0-43b8-8b9f-4687312c101d"/>
+ <interfaceref name="IPhysicalMemory" uuid="e87d9b4e-9a74-40a0-93ef-4f1c1d47d2e8"/>
+ <interfaceref name="IMultiThreading" uuid="3db93a90-a7c1-41df-9029-4e3895f9fab2"/>
+</requires>		
+<provides>
+ <interfaceref name="IMultiProcessing" uuid="2c902461-c339-4008-ad73-84732a7c9f70" version="1.1"/>
+</provides>
+</component>
+</context>

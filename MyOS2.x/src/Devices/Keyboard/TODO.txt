@@ -1,0 +1,7 @@
+Split keyboard into device <-> driver
+- Device should register itself in repository as interface (or as device?)
+  to allow setting of type rate, etc
+  
+- Driver should detect & instantiate devices (1 in this case)
+
+- Perhaps they can share the same directory in the source tree

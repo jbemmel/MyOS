@@ -1,0 +1,32 @@
+#ifndef MEMTYPES_H
+#define MEMTYPES_H	
+
+#include "types.h"
+
+namespace MyOS {
+namespace MemoryManagement {
+
+   // Need to be able to use '&' for masking, and '+'
+   typedef void* linadr_t;
+   
+   typedef u32 physadr_t;
+   
+   // Actually only 12 bits, but for passing them around...
+   typedef u32 pteflags_t;
+
+   /// Descriptor privilege level
+   enum EDPL { E_DPL0 = 0x0, E_DPL1 = 0x1, E_DPL2 = 0x2, E_DPL3 = 0x3 };
+
+   // allow GCC to optimize where possible...
+   inline u32 getOffset( const void* a ) __attribute__ ((const));
+   inline u32 getPDTIndex( const void* a ) __attribute__ ((const));
+   inline u32 getPBTIndex( const void* a ) __attribute__ ((const));
+
+   // Decomposition of a linear address into bits used for paging
+   inline u32 getOffset( const void* a )    { return ((u32)a&0x00000FFF); }
+   inline u32 getPDTIndex( const void* a )  { return ((u32)a&0x003FF000)>>12; }
+   inline u32 getPBTIndex( const void* a )  { return ((u32)a>>22); }
+
+}}	// namespace
+
+#endif

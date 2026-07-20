@@ -1,0 +1,90 @@
+#ifndef FloppyThread_H
+#define FloppyThread_H
+
+#include "MM/BitBuddyAllocator.hpp"
+
+#include "FDC.h"
+#include "InterruptHandling/IInterruptHandling.h"
+#include "MultiThreading/IMultiThreading.h"
+
+#include "Atomic/Queue2.h"
+#include "DMA/DMAController.h"
+
+#include "Devices/IORequest.h"
+#include "MM/new.h"
+
+namespace MyOS { namespace Devices { namespace Floppy {
+
+using namespace MultiThreading;
+using namespace InterruptHandling;
+using DMA::DMAController;
+ 
+/**
+ * This class is responsible for communication with the primary FDC
+ * (and thus the only one accessing it..)
+ */
+class FloppyThread : public IRunnable, public IInterruptContext {
+
+   inline void operator delete( void* ) {}
+public:
+   inline FloppyThread() : status(E_IDLE) {}
+   virtual ~FloppyThread() {}
+   bool init( Thread& w ) INITSECTION;
+   void deinit();
+
+   inline void addRequest( u32 lbnStart, u8 count, u8 seriesCount, IOCompletionHandler& h ) {
+
+      requests.enqueue( * new ( worker->allocate(sizeof(IORequest)) ) IORequest( lbnStart, count, seriesCount, h ) );     
+
+      // This will cancel any valid sleep while waiting for cur request
+      if (status==E_IDLE) {
+         status = E_KICKED;
+         worker->wakeup(); // kick it, but only when not busy
+      }         
+   }
+
+   inline void releaseBuffer( buffer& buf ) { 
+      releaseBuf( ((u32) buf.getData() - (u32) dmaBuffer), buf.getSize() );
+   }
+   inline void releasePhysicalBuffer( MM::physadr_t b, size_t blockcount ) {
+      releaseBuf( b - dmaPhysical, blockcount * 512 );
+   }
+   
+private:
+   void releaseBuf( u32 offset, size_t bytes );
+
+   // IRunnable 
+   virtual int run( NVPAIR params[] );
+
+   // IInterruptContext
+   virtual MultiThreading::Thread* onInterrupt( ISupportFunctions& support );   
+      
+private:
+
+   // Policy parameter: number of requests to dequeue each iteration
+   enum { E_BATCH=4 };
+
+   bool seek( u32 block );
+
+   FDC fdc;
+   DMAController dma;
+
+   Queue requests;   // atomic queue
+   Thread* worker;
+   IORequest* curRequest;
+
+   u8* dmaBuffer;
+   MM::physadr_t dmaPhysical;
+
+   // Lets start with a bitmap, and see how it works out
+   // Max. 128KB = 1<<5 * 1<<12, in units of 1<<9 = 512 bytes
+   typedef MM::BitBuddyAllocator< 17, 9 > MEMMAP;
+   MEMMAP *bufmap;
+      
+   volatile enum { E_SEEKING, E_READING, E_IDLE, E_KICKED } status;
+   bool motoron;      
+};
+   
+}
+}} // namespaces
+#endif

@@ -1,0 +1,14 @@
+<context name="Drivers/Network/NE2000">
+<driver name="NE2000" uuid="d54a162a-6f34-4cd7-b507-4ecb01f1e256">
+<version vendor="MyOS" major="2" minor="1"/>
+<requires>
+ <interfaceref name="IVirtualMemory" uuid="2a147d6f-cab0-43b8-8b9f-4687312c101d"/>
+ <new blockorder="0"/>
+ <interfaceref name="IInterruptHandling" uuid="26468cf9-fa5b-4de7-9914-eec11e667215"/>
+ <interfaceref name="IMultiThreading" uuid="3db93a90-a7c1-41df-9029-4e3895f9fab2"/> 
+</requires>
+<provides>
+ <deviceref uuid="5f119878-41d6-4374-bdb5-543a2c90ef21" name="IEthernetDevice" version="1.1"/>
+</provides>
+</driver>
+</context>

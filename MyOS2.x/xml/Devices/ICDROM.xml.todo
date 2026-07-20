@@ -1,0 +1,6 @@
+<context name="Devices/IDE">
+<device type="block" blocksize="4096" uuid="0efab134-2419-4c42-8165-1f3561da784e" name="ICDROM" url="http://www.myos.org/Interfaces" version="1">
+ <!--native file="Devices/IDE/ICDROM.inc"/-->
+ <method name="getVolumeLabel" kind="get" stream="true"/>
+</device>
+</context>

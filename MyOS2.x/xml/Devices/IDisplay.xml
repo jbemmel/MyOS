@@ -1,0 +1,9 @@
+<context name="Devices/Display">
+<device type="char" uuid="abe1beba-0457-4375-8a3e-48809a0d5838" name="IDisplay" url="http://www.myos.org/Interfaces" version="1">
+ <native file="Devices/Display/IDisplay.inc"/>
+ <method name="clear" kind="put"/>
+ <method name="print" kind="put" stream="true">
+  <body type="string"/>
+ </method>
+</device>
+</context>

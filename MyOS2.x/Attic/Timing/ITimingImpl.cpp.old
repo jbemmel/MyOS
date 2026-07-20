@@ -1,0 +1,72 @@
+#include "ITimingImpl.h"
+#include "TimeUtil.h"
+#include "Timing/TimingComponent.h"
+
+// test
+#include "TimerEvent.h"
+
+namespace MyOS { namespace Timing {
+
+ITimingImpl::ITimingImpl( MyOS::Core::IComponent& c )
+: ITiming( c, VERSION(1,0) )
+{
+
+}
+
+bool 
+ITimingImpl::init( IContext& context, NVPAIR params[] ) /* INITSECTION */
+{
+   apicTimer.init(
+      *TimingComponent::getInstance().iVirtualMemory, 
+      *TimingComponent::getInstance().iInterruptHandling 
+   );
+   theTimer.init();
+      
+   // small test, shows that accuracy is great (idle under bochs) for >= 20 us )
+/*   
+   class Tester : public TimerEvent
+   {
+   public:
+      Tester() : fired(false) {}
+            
+      volatile bool fired;
+      u64 firetime;
+   
+      virtual MyOS::MultiThreading::Thread* onTimer() {
+         firetime = TSC::read();
+         fired = true;
+         return 0;
+      }
+   } testevent;
+
+   for (int interval = 10; interval < 5000; interval <<= 1 ) {
+      u64 start = TSC::read();    
+      this->scheduleCallback( testevent, interval );
+      u32 start_us = TimeUtil::convertTicks<us>( start );
+      DPRINTK( "\nScheduled after %d at us=%d", interval, start_us );
+      while (!testevent.fired);
+      u32 end_us = TimeUtil::convertTicks<us>( testevent.firetime );
+      u32 d = (end_us - start_us - interval);
+      DPRINTK( " -> Fire at us=%d (delta=%d or %d%%)", end_us, d, (d*100) / interval );
+      testevent.fired = false;
+   }
+*/   
+	return true;
+}
+
+void 
+ITimingImpl::deinit( IContext& context )
+{
+
+}
+
+
+// virtual 
+myos_result_t
+ITimingImpl::scheduleCallback( TimerEvent& e, u32 afterUs  )  {
+   // XX calling overhead
+   theTimer.addEvent( e, afterUs );
+   return E_MYOS_SUCCESS;  // XX check result of addEvent
+}
+
+}}  // namespaces

@@ -1,0 +1,6 @@
+<context name="Devices/USB">
+<!-- TODO: is-a packet device ? -->
+<device uuid="513af5fe-9d0e-4b3c-a6cb-ecf23e0b5cfe" name="IUSBRootHub" url="http://www.myos.org/Interfaces" version="1">
+ <native file="Devices/USB/IUSBRootHub.inc"/>
+</device>
+</context>

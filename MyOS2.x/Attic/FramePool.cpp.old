@@ -1,0 +1,151 @@
+//
+//  FramePool implements a common pattern for resource management : number the resources you have, divide them over several pools
+//  In this way, many clients (threads) can be served simultaneously
+//
+//  This is not possible for all kinds of resources, but in case of pages clients usually dont care *which* one they get, or where, just some
+#include "FramePool.h"
+#include "PageDirectory.h"
+#include "PBT.h"
+#include "Page.h"
+#include "debug.h"
+
+#include "Init/memlayout.h"   // to mark physical kernel frames
+
+namespace MyOS {
+namespace MM {
+
+// Returns the PDT for the pools
+inline PageDirectory& FramePool::getPDT() {
+    return PageDirectory::getDir( pools() );
+}
+
+// in-place new, needed below
+inline void* operator new( size_t, void* m ) { return m; }
+
+// static
+FramePool*
+FramePool::map1stMb()   /* INITSECTION */
+{
+   FramePool* _this = &getPoolForFrame( 0 );   // 0xFF400000
+   ::new (_this) FramePool();          // call constructor to init members
+   PageDirectory &lowmem = PageDirectory::getDir( 0 );
+
+   // first, clear all entries (TODO: probably needs flush!)
+   lowmem.asPage()->clear();
+
+   // page 0 is for the BIOS (read only)    to catch null ptrs, map it to zero !
+   lowmem[0].map( 0, 0 );	// read-only
+
+   // mark those entries (*after* mapping yourself)
+   _this->allocationmap.markUsed(0);   // physical page 0 == BIOS
+   // _this->allocationmap.markUsed(1);	// physical page 1 == FramePool
+
+    // map EBDA
+    lowmem[0x9F].map( 0x9F000, E_PAGE_SHAREABLE | E_PAGE_READONLY );
+    _this->allocationmap.markUsed(0x9F);
+
+    // also map video ROMS & BIOS32
+    for ( u32 video = 0xa0; video < 0x100; ++video )
+    {
+        // non-cacheable, user_accessible for V86 mode BIOS calls (parts could be read-only...)
+        lowmem[video].map( video << 12, E_PAGE_MMIO | E_PAGE_USER );
+        _this->allocationmap.markUsed(video);	// 0xa0...0xFC = 160..252
+    }
+
+   // Set the PDT entry for 0-4Mb linear memory to allow user-mode access, since 
+   // VM86 always runs at CPL=3 (and needs to call BIOS functions there)
+   PBT::getCurrentPBT()[0].setAttributes( E_PAGE_KERNEL | E_PAGE_USER );
+
+   // Also mark all physical frames used by the kernel!
+   // For now, this covers 'INIT' until 'FREE_KERNEL_SPACE_START'
+   // Later, INIT frames can be freed (both physical and linear)
+/*
+   s32 pages = (&_FREE_KERNEL_SPACE_START_ - &_COMPRESSED_START_LINEAR_) >> 12;
+   do {
+      DPRINTK( "\nMarking kernel %d", (KERNEL_PHYSICAL >> 12) + pages );
+      _this->allocationmap.markUsed( (KERNEL_PHYSICAL >> 12) + pages );
+   } while (--pages >= 0);
+*/   
+
+   // When this is done, BIOS32 could be initialized
+   return _this;
+}
+
+FramePool::FramePool() : ringnode(*this)
+{
+   // just in case
+   // allocationmap.clear();
+   ASSERTION( allocationmap.isClear(), E_CRITICAL );
+}
+
+physadr_t
+FramePool::allocateFrame()
+{
+   ASSERTIONv( ((u32) this & 0x3) == 0, E_ERROR, this );
+ 
+   u32 index = allocationmap.getIndex();
+   if (index != allocationmap.E_FULL)
+      return physicalStart() + index * _4KB;
+   else {
+     // CHECKPOINT( 'f' );
+      return 0;
+   }
+}
+
+physadr_t
+FramePool::allocateFrameRange( u8 count, u8 align /* =1 */ )
+{
+    ASSERTION( count>0 && count<=32, E_ERROR );
+
+    u32 index = count>1 ? allocationmap.getMulti( count, align ) : allocationmap.getIndex();
+    if (index != allocationmap.E_FULL)
+        return physicalStart() + index * _4KB;
+    else {
+        // CHECKPOINT( 'F' ); // failed!
+        return 0;
+    }
+}
+
+void
+FramePool::releaseFrame( physadr_t pte )
+{
+   ASSERTION( (pte-physicalStart()) < _4MB, E_ERROR );
+   // DPRINTP( "\nreleaseFrame p=%x", pte );
+
+   allocationmap.releaseIndex( 
+      getPDTIndex( (void*) (pte - physicalStart()) ) );   
+}
+
+void
+FramePool::releaseFrameRange( physadr_t pteStart, u8 count )
+{
+   // DPRINTP( "\nreleaseFrameRange p=%x c=%d", pteStart, count );
+ 
+   // Verify that frame belongs to this pool
+   ASSERTION( (count>0) && (count<=32) &&
+      ((pteStart-physicalStart()) < _4MB), E_ERROR );
+
+   allocationmap.releaseMulti( 
+      getPDTIndex( (void*) (pteStart - physicalStart()) ), count );
+   
+   // DPRINTP( "\nFramePool::free=%d", allocationmap.getFree() );
+}
+
+myos_result_t
+FramePool::print( IO::OStream& out ) const
+{
+   out.printf( "\n<pool phys=\"%x\" free=\"%d\">", physicalStart(), allocationmap.getFree() );
+   u32 clear = 0;
+   for (u32 i=0; i<1024; ++i) {
+      bool s = allocationmap.isSet(i); if(!s) ++clear;
+      out.printf( s ? "1":"0" );
+   }      
+   out.printf( "\n</pool>" );
+   
+   // Can be less if some other thread is busy freeing (and has not updated free)
+   ASSERTIONv( clear <= allocationmap.getFree() || allocationmap.getFree()==0, 
+      E_CRITICAL, allocationmap.getFree() - clear );
+   return E_MYOS_SUCCESS;  // could set marker and return #bytes written
+}
+
+}}  // namespace

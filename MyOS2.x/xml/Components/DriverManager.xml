@@ -1,0 +1,13 @@
+<context name="Drivers">
+<component name="DriverManager" uuid="c8a70b00-5f59-11d6-9e80-0010a708e02f">
+<version vendor="MyOS" major="1" minor="1"/>
+<requires>
+ <interfaceref name="IVirtualMemory" uuid="2a147d6f-cab0-43b8-8b9f-4687312c101d"/>
+ <interfaceref name="IInterruptHandling" uuid="26468cf9-fa5b-4de7-9914-eec11e667215"/>
+ <new blockorder="0"/>
+</requires> 
+<provides>
+ <interfaceref name="IDriverManager" uuid="adf79a36-5871-11d6-858d-0010a708e02f" version="1.1"/>
+</provides>
+</component>
+</context>

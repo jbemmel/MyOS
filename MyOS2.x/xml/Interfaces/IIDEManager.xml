@@ -1,0 +1,6 @@
+<context name="Devices/IDE">
+<interface uuid="9abd60a9-6b81-4d69-bb19-92f5e88de4cc" name="IIDEManager" url="http://www.myos.org/Interfaces" version="1">
+ <native file="Devices/IDE/IIDEManager.inc"/>
+ <method name="listDevices" kind="get" stream="true"/>
+</interface>
+</context>

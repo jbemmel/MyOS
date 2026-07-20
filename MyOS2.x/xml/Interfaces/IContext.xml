@@ -1,0 +1,18 @@
+<context name="Context">
+<interface uuid="bdf79a36-5871-11d6-858d-0010a708e02e" name="IContext" url="http://www.myos.org/Interfaces" version="1">
+	<method name="add" kind="put" remote="false">
+	 <params><param name="intf" type="IInterface&amp;"/><param name="altname=0" type="myos_name_t*"/></params>
+	</method>
+	<method name="remove" kind="put" remote="false"><params><param name="intf" type="IInterface&amp;"/></params></method>
+	<method name="lookup" kind="get" remote="false">
+     <params>
+      <param name="id" type="const myos_name_t&amp;"/>
+      <param name="result" type="IInterface*&amp;"/>
+     </params>	 
+	</method>
+	<method name="enumerate" kind="get" stream="true"/>
+	<method name="copy" kind="get" remote="false">
+		<params><param name="to" type="IContext&amp;"/></params>
+	</method>		
+</interface>
+</context>

@@ -1,0 +1,5 @@
+/build/
+*.ncb
+*.opt
+*.plg
+*.suo

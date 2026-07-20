@@ -1,0 +1,51 @@
+<context name="Init">
+<container name="MyOSCore" uuid="c5bc1d9e-8731-11d6-85e9-0010a708e02d" url="http://www.myos.org/Containers">
+	<version vendor="MyOS" major="2" minor="1"/>
+	<md5 sum="00000000000000000000000000000000"/>
+	<contains>	   
+	   <componentref boot="1" name="MM" context="MM" uuid="b4e0fdc1-c04a-4149-baaf-037bd91ed349"/>	   
+		<componentref boot="1" name="Repository" context="Context" uuid="c6a70b00-5f59-11d6-9e80-0010a708e02d"/>
+
+      <componentref name="IH" context="InterruptHandling" uuid="ea21dd8e-ce8a-4777-8f03-5f0e39283c2c"/>	   
+      <componentref name="DemandPaging" context="MM" uuid="26954748-c804-4133-aa78-151c80f636da"/>
+
+		<componentref name="Display" context="Devices/Display" uuid="c706b2e4-5f59-11d6-946d-0010a708e02d"/>		
+		<componentref name="Timer" context="Timer" uuid="95c995ac-42b3-4f23-a2f4-cce6af7175df"/>
+
+		<!-- Various other things, NOTE: can declare without UUID ?? -->
+		<!--componentref name="Base64" context="Decoding/Base64" uuid="fe310684-a446-45a7-9e38-d7556e966166"/-->
+
+		<!-- Excluding this one for now, the pages containing the code are not mapped 
+			  Including it will cause a crash, since init routines are not available -->
+		<!--componentref name="Zip" context="Zip" uuid="cbf871a4-5f5a-11d6-8410-0010a708e02d"/-->
+
+		
+		<!-- XX This is not added to the repository.. -->
+		<componentref name="MT" context="MultiThreading" uuid="4b6c1c62-ce07-4242-996e-c47bf87eefd3"/>
+		<componentref name="MP" context="MultiProcessing" uuid="ba2161d8-487c-426d-8465-64e0f722ce40"/>
+		
+		<componentref name="DriverManager" context="Drivers" uuid="c8a70b00-5f59-11d6-9e80-0010a708e02f"/>
+		
+		<!--driverref name="UHCI" context="Drivers/USB/Standard" uuid="982dfb4e-bd23-4f36-9146-39db3ef7c50e"/-->
+		<!--driverref name="Keyboard" context="Drivers/Keyboard/Standard" uuid="3cc231d8-2c39-4bf5-80ce-5427e7b5b549"/-->		
+		<!--driverref name="Floppy" context="Drivers/Floppy" uuid="882dfb4e-bd23-4f36-9146-39db3ef7c50d"/-->
+		
+		<driverref name="NE2000"  context="Drivers/Network/NE2000" uuid="d54a162a-6f34-4cd7-b507-4ecb01f1e256"/>
+		
+		<!-- Untested !! Taken from MyOS2 -->
+		<!--driverref name="PCNet32" context="Drivers/Network/PCNet32" uuid="d54a162a-6f34-4cd7-b507-4ecb01f1e256"/-->
+		<componentref name="IP" context="Networking/IP" uuid="2525e92e-c8b5-45b6-8e30-09ce70d8e4de"/>		
+		<serviceref name="DHCPClient" context="Services/Network/DHCP" uuid="7e651f6c-9c74-4d02-99d9-edbe3e6bd852"/>
+		<serviceref name="TCP" context="Services/Network/TCP" uuid="99d5be5c-57bc-48e0-ad35-c67d97a32cf0"/>
+		
+		<!--componentref name="FAT" context="FS/FAT" uuid="c94a668a-7378-45b7-adbc-f6a0b32bb279"/-->
+		<!--componentref name="IDEDriver" context="Devices/IDE" uuid="0e639e52-7800-4aa2-8a57-9a3c9e05d320"/-->
+		<!--componentref name="ISO9660" context="FS/ISO9660" uuid="c94a668a-7378-45b7-adbc-f6a0b32bb279"/-->
+		
+		<!--componentref name="BIOS" context="BIOS" uuid="ea03802f-aa66-461c-8ff9-90fb7d046e5e"/-->
+		
+		<!-- For all kinds of tests -->
+		<componentref name="Test" context="Tests" uuid="3af4da31-43d2-4724-a372-6832b5241725"/>		
+	</contains>
+</container>
+</context>

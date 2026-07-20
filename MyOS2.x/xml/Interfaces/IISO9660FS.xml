@@ -1,0 +1,13 @@
+<context name="FS/ISO9660">
+<interface uuid="357cf5b1-0537-4164-ad4b-39896a5b0306" name="IISO9660FS" url="http://www.myos.org/Interfaces" version="1">
+	<native file="FS/ISO9660/IISO9660.inc"/>
+<!--
+	<method name="readFile" kind="get" stream="true" remote="false">
+     <params>
+      <param name="filepath" type="const myos_name_t&amp;"/>
+     </params>	 
+	</method>
+	<method name="enumerateFiles" kind="get" stream="true"/>
+-->	
+</interface>
+</context>

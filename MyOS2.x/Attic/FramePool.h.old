@@ -1,0 +1,119 @@
+/**
+ * 30/12/2003 Idea: Why not just have one huge bitmap for all of physical
+ * memory ?? one bit per physical frame (perhaps atomic get/set becomes
+ * a performance bottleneck then...)
+ */
+ 
+#ifndef FRAMEPOOL_H
+#define FRAMEPOOL_H
+
+#include "DRINGLIST.h"
+#include "Atomic/AtomicBitArray.h"
+#include "../memtypes.h"
+#include "IO/OStream.h"
+
+namespace MyOS {
+namespace MM {
+    
+class PageDirectory;
+
+/**
+* Contains 1024 available frames for a total of 4Mb (size = 1 Page )
+* @note : There is a trade-off possible here
+*
+*  All framepools are mapped to fixed linear addresses 0xFF400000-0xFF800000
+*  In this way, the mapping physical frame <-> pool takes constant time
+*/
+class FramePool
+{
+   // Doubly-linked list of all framepools
+   DRINGLIST<FramePool>::Node ringnode;
+
+   // maintains a bitmap and count of #PTEs used/available
+   AtomicBitArray<1024> allocationmap;
+
+   friend class IPhysicalMemoryImpl;
+   
+   FramePool() INITSECTION;
+   static FramePool* map1stMb() INITSECTION;     // needs special care
+
+   // internal helper function
+   inline static PageDirectory& getPDT();
+
+public:
+
+   /** 
+    * 
+    * @return linear address of the array of all framepools 
+    * all max. 1024 pools are mapped to this range for every process    
+    */
+   inline static FramePool* pools() { return (FramePool*) 0xFF400000; }   
+
+   /** @return a pool by its index */
+   inline static FramePool& pool( u32 i ) { return pools()[i]; }
+
+   /** @return the number of available page frames in this pool */
+   inline size_t availableFrames() const { return allocationmap.getFree(); }
+
+   /**
+    *  Atomically allocates a single physical pageframe
+    *  @return physical address of frame allocated, or E_INVALID_PHYS_ADR
+    */
+   physadr_t allocateFrame();
+
+   /**
+    * Atomically allocates a sequential range of physical pageframes
+    * @param count - Number of frames to allocate, 1..32 for max. 32*4=128K
+    * @param align - Alignment of the range, in 4K page units
+    *                (e.g. 16 to not cross 16*4Kb=64Kb boundary)
+    * @return physical address of first frame, or E_INVALID_PHYS_ADR
+    */
+   physadr_t allocateFrameRange( u8 count, u8 align=1 );
+
+   /**
+    *  Atomically releases a physical frame that was allocated in this pool
+    *  @param frame - Physical start address of page
+    * 
+    */
+   void releaseFrame( physadr_t frame );
+
+   /**
+    *  Atomically releases a range of allocated physical frames in this pool
+    *  @param firstFrame - physical address of first page
+    *  @param count - range to free, 1..32
+    * 
+    */
+   void releaseFrameRange( physadr_t firstFrame, u8 count );
+
+   // must be called after releaseFrame(Range) returns true
+   inline void unlock() {
+      allocationmap.release();    
+   }
+
+   /**
+    *  Returns the (fixed) address of the pool for a particular page
+    *  @param forFrame - Page to look for
+    */
+   static inline FramePool& getPoolForFrame( physadr_t forFrame )
+   {
+       // 10 (2^10=1024 entries per pool) + 12 (PTEbits)
+       return pool( forFrame >> 22 );
+   }
+
+   /**
+    *  Returns the physical address of the first page in this pool
+    */
+   inline physadr_t physicalStart() const
+   {
+       // ((this-0xff400000) / sizeof(FramePool)) * 4Mb
+       //   == (this-0xFF400000) << (22-12)
+       return (( ((u32)this) - (u32)FramePool::pools() ) / sizeof(FramePool)) * _4MB;
+   }
+   
+   // Mainly for debugging
+   myos_result_t print( IO::OStream& out ) const;
+};
+    
+}}	// namespace
+
+#endif

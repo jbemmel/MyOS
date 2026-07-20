@@ -1,0 +1,4 @@
+- Each process' thread[0] could have a fixed linear address for ESP, e.g. 0xF00000000 downwards
+  Don't know if this offers any advantages though. Upon each thread switch, you could swap
+  the page entry for that linear address to map all stacks (and threads) to the same address, 
+  but this makes it more difficult to address another thread's stack/data

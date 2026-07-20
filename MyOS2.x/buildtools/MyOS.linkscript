@@ -1,0 +1,103 @@
+STARTUP( DoDecompress.o )
+
+SECTIONS {
+
+/* To include components directly, these are needed */
+_DYNAMIC_ = 0;
+_DYNAMIC_END_ = 0;
+
+PCICONFIG = 0;
+free_userspace_start = 0;
+UNMAPPED_PAGE4IDT = 0xAA000000;
+UNMAPPED_VAL4IDT = 0x08AA0000;
+
+/* Leave 0x200 bytes for bootphase2.asm */
+UNCOMPRESSED 0xFF800200 : {
+   DoDecompress.o( START )
+   DoDecompress.o( .text )
+   ZipContext.o( .text* .data* .rodata* .rdata* )
+   *(.rodata.UNCOMPRESSED)
+}
+
+/* Under cygwin, objcopy pads until next boundary... */
+/* _START_OF_COMPRESSED_BINARY_ = ALIGN(0x200); */
+
+/* Under binutils 2.15, this does not happen */
+_START_OF_COMPRESSED_BINARY_ = .;
+__START_OF_COMPRESSED_BINARY_ = _START_OF_COMPRESSED_BINARY_;
+
+/* Could map most INIT at the end, to make discarding easier... */
+/* Note: Some code relies on this being page-aligned... */
+INIT  ALIGN(0x1000)  :	{
+   _COMPRESSED_START_LINEAR_ = .;
+   __COMPRESSED_START_LINEAR_ = _COMPRESSED_START_LINEAR_;
+   MyOSMain.o(.text.init)
+   BootContext.o( .text .rdata* .gcc_except_table )	/* !not! .text* !! */
+   *(.text.init)
+   
+    /* Add for static initialization ??
+    *(.ctor*)
+	*/
+}
+
+/* .gnu.linkonce is needed for static initializtaion e.o., .t for thunks (multiple inheritance) */
+_START_OF_CODE_ = ALIGN(0x1000);
+__START_OF_CODE_ = _START_OF_CODE_;
+.code		_START_OF_CODE_ 		:	{
+
+    *(.code*)
+    
+/* @COMPONENT_SECTIONS@ */
+    
+    *(.text*)
+    *(.gnu.linkonce.d.*)
+    *(.gnu.linkonce.t.*)
+    *(.data$*)
+    *(.rodata*)
+    *(.rdata*)
+    *(VM86)
+    
+    /* Added for exception handling... */
+    *(.gcc_except_table)
+}
+
+_START_OF_DATA_ = ALIGN(0x1000);
+__START_OF_DATA_ = _START_OF_DATA_;
+.data		_START_OF_DATA_   :	{
+   *(.data*)
+   *(MAGIC)
+}
+
+/* IDT, GDT tables, each with 256 entries => 256*8*2 = 1 page in total
+
+   I've tried to add this to .bss and then strip it, which works fine under bochs
+   but crashes the real hw for some reason (decompress works, but clearing BSS kills)
+
+   I've found it! When I include .table in the clearing, it works!
+*/
+
+/* .bss directly follows , page aligned */
+_BSS_START_ = ALIGN(0x1000);
+__BSS_START_ = _BSS_START_;
+.bss _BSS_START_	: {
+	*(.table)
+	*(.bss*)
+	*(COMMON)
+_BSS_SIZE_ = . - _BSS_START_;
+__BSS_SIZE_ = _BSS_SIZE_;
+}
+
+.stack ALIGN(0x1000)		:
+{
+	DoDecompress.o(.stack)
+
+	_FREE_KERNEL_SPACE_START_ = ALIGN(0x1000);
+	__FREE_KERNEL_SPACE_START_ = _FREE_KERNEL_SPACE_START_;	
+}
+
+
+
+/DISCARD/				:	{ *(.note) *(.comment) *(*) }
+
+}
+

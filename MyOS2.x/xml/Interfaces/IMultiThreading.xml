@@ -1,0 +1,6 @@
+<context name="MultiThreading">
+<interface uuid="3db93a90-a7c1-41df-9029-4e3895f9fab2" name="IMultiThreading" url="http://www.myos.org/Interfaces" version="1">
+	<native file="MultiThreading/IMultiThreading.inc"/>
+	<method name="listThreads"    kind="get" stream="true"/>
+</interface>
+</context>

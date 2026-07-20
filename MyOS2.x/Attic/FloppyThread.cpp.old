@@ -1,0 +1,289 @@
+#include "FloppyThread.h"
+#include "IFloppyImpl.h"
+
+#include "Devices/Floppy/FloppyComponent.h"
+#include "MM/new.h"
+
+// debug
+#include "Timer/TimeUtil.h"
+
+namespace MyOS { namespace Devices { namespace Floppy {
+
+using namespace DMA;
+using namespace Timer;
+
+bool 
+FloppyThread::init( Thread& w ) // INITSECTION;
+{
+   worker = &w;
+   dma.init();
+
+   /**
+    * Theoretically I could postpone allocation of virtual memory until after
+    * the DMA read operation has finished...
+    * 
+    * Maybe not for starters
+    */
+
+   // Allocate 1<<7 * 4 = 512KB of DMA buffer, max (this class must obey 64K lim)
+   // ...but impl limit is 32 bits = 1<<5 :(
+   dmaBuffer = (u8*) FloppyComponent::getInstance().iVirtualMemory->allocDMA( 5, dmaPhysical );  
+   DPRINTK( "\nDMA buffer @ %x dmaPhysical=%x", dmaBuffer, dmaPhysical );
+
+#ifdef DEBUG
+   // Dont overwrite BIOS page 0
+   // memset_aligned( dmaBuffer, 0xcccccccc, 1UL << (5+12) );
+#endif
+   
+   // Controller initialized in the thread, but do this here;
+   // INIT pages get freed...
+   return fdc.detect();
+}
+
+void 
+FloppyThread::deinit( )
+{
+   // Should make sure that DMA mem is not used here !
+   FloppyComponent::getInstance().iVirtualMemory->freeDMA( dmaBuffer, 5 );
+   worker->wakeup();    // make it see the exit condition
+}
+
+
+// virtual
+int 
+FloppyThread::run( NVPAIR params[] )
+{
+   DPRINTK( "\nFloppy workerthread running sizeof(bitmap)=%d", sizeof(MEMMAP) ); 
+
+   // Put memmap on the stack here (!) and set the pointer
+   MEMMAP bitmap;
+   bitmap.init();
+   bitmap.free( 1, 8 );    // numbered 0..128KB/512, in 512 byte offsets
+   bitmap.allocate(3);     // Save BIOS page 0
+   bitmap.initDone();      // need to clear the 'present' bit on use!
+   
+   bufmap = &bitmap;
+
+   // This thread operates the controller
+   fdc.initialize();
+   motoron = false;
+
+   register IORequest* r;
+   IFloppyImpl* impl = (IFloppyImpl*) params[0].getValue();
+   while (impl->worker)
+   {
+      // check for requests anyway
+      // DPRINTK( "\nFloppy: Checking for requests..." );
+
+      // Collect up to (E_BATCH) requests and sort them
+      // Could do up/down intermixed here too
+      IORequest* batch[ E_BATCH ];
+      for ( int i=0; i<E_BATCH; ++i) {
+         r = (IORequest*) requests.dequeue();
+         // trivial sort: linear search previous items
+         if (r) {
+            for (int j=0; j<i; ++j) {
+               IORequest* r2 = batch[j];
+               if (r2->getStartBlock() > r->getStartBlock()) {
+                    batch[j] = r;
+                    r = r2;   // swap them
+               }
+            }
+            batch[i] = r;            
+         } else {
+            batch[i] = 0;  // make sure loop below ends!
+            break;         // no more in queue
+         }            
+      }
+
+      // Could also sort reverse and iterate reverse...
+      for (int i=0; i<E_BATCH && (r=batch[i]); ++i)
+      {       
+         // process request
+         DPRINTK( "\nProcess request %x", r );
+
+         // Keep it, for use in IRQ... Synchronize access ??
+         curRequest = r;
+   
+         // This will come back as an IRQ..., could check bool result
+         seek( r->getStartBlock() );
+         
+         // Wait with 60sec timeout, could check for 'false' (expected)
+         IThread::do_usSleep( 60 * 1000 * 1000 );
+      }
+      
+      // If we didn't process anything the last run, 
+      // Try a 3 second sleep, if succeeds stop the motor if running
+      if (batch[0]==0) {
+        
+         status = E_IDLE;
+        
+         // DPRINTK( "..start 3sec sleep at %d", TimeUtil::now(ms) );
+         if (IThread::do_usSleep( 3000000 )) {
+            if (motoron) {
+               DPRINTK( "\nStopping motor(s)..." );
+               fdc.stopMotors();
+               motoron = false;     
+            }
+         }
+      }         
+   }
+   
+   fdc.stopMotors();
+   
+   // send error to all outstanding requests...
+
+   while (( r = (IORequest*) requests.dequeue() ))
+   {
+      // process request
+      DPRINTK( "\nSending onError to pending request %x", r );
+      r->onError();
+      Thread::currentThread().free( r /* , sizeof(Request) */ );
+   }
+   DPRINTK( "\nFloppy thread exits" );
+   return 0; 
+}
+
+// virtual
+MultiThreading::Thread* 
+FloppyThread::onInterrupt( ISupportFunctions& support )
+{
+   // DPRINTK( "\nFloppyThread::onInterrupt" );
+
+   u32 id;
+   MM::physadr_t dmaAdr;
+   if (status==E_SEEKING) {
+   
+      if (!fdc.senseIrq()) {
+         DPRINTK( "\nFloppy: Failed to issue sense command" );
+      } // else DPRINTK( "\nFloppy:seekResult len=%X ST0=%X cyl=%X", len, status.st0, status.st1 );
+
+      // Could allocate earlier...
+      if (!curRequest->isContinuation()) {
+         // DPRINTK( "\nTry to allocate 1<<%d blocks...", curRequest->getLog2Count() );
+         id = bufmap->allocate( curRequest->getLog2Count() ) & ~1;
+         // DPRINTK( "\nGot offset %x order=%d blocks=%d", id, curRequest->getLog2Count(), curRequest->getCount() );
+         dmaAdr = dmaPhysical + id;
+         curRequest->setDMAAddress( dmaAdr );
+         // DPRINTK( "\nDMA address is %x", dmaAdr ); while (1);
+      } else {
+         dmaAdr = curRequest->getDMAOffset(512);  
+      }         
+      id = curRequest->getStartBlock();
+   } else {
+      
+      // process result of previous request
+      FDCStatus status;
+      u8 length = fdc.readStatus( status );
+      if (status.isOK()) {
+         //DPRINTK( "\n..read %x rq#=%u cyl=%X head=%X sec=%X resultlength=%X", 
+         //   curRequest, curRequest->getStartBlock(), status.track, status.head, status.sector, length );
+         CHECKPOINT('r');
+      } else {
+         DPRINTK( "...failed, ST0=%X ST1=%X ST2=%X resultlength=%X",
+            status.st0, status.st1, status.st2, length );
+         curRequest->onError();  // XX Retry first
+         id = 0;
+         dmaAdr = curRequest->getDMAAddress() - dmaPhysical;
+         goto release;
+      }
+        
+      if (curRequest->done()) {
+         // reuse 'id' and 'dmaAdr' variables
+         dmaAdr = curRequest->getDMAAddress() - dmaPhysical;
+         id = curRequest->onRead( buffer( &dmaBuffer[ dmaAdr + curRequest->getPartIndex() * 512 ], curRequest->getCount() * 512 ) );
+         if ((id&IOCompletionHandler::E_KEEPBUFFER)==0) {
+release:
+            bufmap->free( dmaAdr | 1, curRequest->getLog2Count() );
+         }
+         if ((id&IOCompletionHandler::E_REISSUE)==0) {
+            worker->free( curRequest /* , sizeof(Request) */ );            
+            curRequest = 0;
+         } else {
+            // not done yet, reissue (and dont delete...)
+            curRequest->reissued();
+            requests.enqueue( *curRequest );  // reissue, modified
+         }
+
+/*
+ * TODO: Instead of waking the thread which will do the next request, it would be
+ * much better to continue processing here directly. That is, do the seek(optimized
+ * to skip if already ok) and then trigger the read here.
+ * 
+ * A simple **request pointer to the 'batch' array could do the job, with last
+ * *request==0 as an exit condition. This will give bursts of N requests
+ * 
+ * Can it be done without any thread? What is the benefit of a separate thread?
+ * 
+ * Continuing here would mean we cannot do 'ussleep' here (for the motor), but 
+ * since we're processing the motor is guaranteed to be on!
+ */   
+         return worker;
+      } 
+
+      // prepare for next if not done      
+      id = curRequest->nextBlock();
+      dmaAdr = curRequest->getDMAOffset(512);
+   } 
+
+   // DPRINTK( "\nDMA: program offset=%x", dmaAdr );
+
+   // For now, read in 512-byte quantities only
+   dma.startDMATransfer(
+      DMA_CHANNEL_2 | DMA_TYPE_SINGLE | DMA_TRANSFERMODE_WRITE,
+      /* curRequest->getCount()* */ 512,
+      // Should be below 1Mb physical, not crossing 64KB mark
+      dmaAdr
+   );
+
+   // Program data rate(!) Found this in example fdc code
+   // controller.setDataRate(E_500Kbps);
+
+   // For now, assume 1.44M
+   status = E_READING;
+   if (fdc.readBlock( id ) == false) {
+      DPRINTK( "\nreadCommand failed!" ); 
+      // perhaps wake worker to fix this...     
+   }
+   
+   // Dont let worker run, it can do anything useful
+   return 0;
+}
+
+void 
+FloppyThread::releaseBuf( u32 offset, size_t bytes )
+{
+   // DPRINTK( "\nFloppy::releaseBuf o=%x bytes=%d", offset, bytes ); 
+ 
+   // XX duplicate calculation
+   for (u32 o=0, b=1<<9; o<(32-9); ++o, b<<=1) {
+      if (b>=bytes) {
+         bufmap->free( offset | 1, o );
+         return;
+      }
+   }    
+   BUG( "\nCould not determine order of buffer" ); 
+}
+
+bool
+FloppyThread::seek( u32 block )
+{
+   // DPRINTK( "\nFloppy:Worker seek block=%u", block );
+
+   if (!motoron) {
+      // XX assuming A:  
+      // need 500ms delay after starting      
+      // DPRINTK( "\nstartMotor" );
+      fdc.startMotor( 0 );  
+      IThread::do_usSleep( 500 * 1000 );
+      motoron=true;
+   }
+
+   status = E_SEEKING;  // XX parallel ?
+   return fdc.seek( block ); // could optimize: only seek if needed
+}
+
+
+
+}
+}}  // namespaces
