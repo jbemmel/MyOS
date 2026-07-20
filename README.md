@@ -15,6 +15,15 @@ context. They include their own boot path, memory management, interrupt and
 timer handling, multiprocessing and threading, device drivers, networking,
 services, compression, and a small C++ runtime.
 
+## Development period
+
+MyOS was developed over roughly a decade, from **2002 through 2012**. Early
+MyOS2.x source headers date to 2002; the preserved MyOS3.x source archives and
+design models document the transition during 2007–2008; and the latest recorded
+MyOS3.x build metadata is dated January 2012. The repository therefore captures
+both the initial component-oriented kernel and its later Core/Atmosphere
+evolution.
+
 ## The evolution at a glance
 
 ```mermaid
