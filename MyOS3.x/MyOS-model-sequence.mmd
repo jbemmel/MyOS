@@ -1,0 +1,34 @@
+sequenceDiagram
+  autonumber
+  participant CurrentThread as Current thread
+  participant NewThread as New thread
+  actor TimerActor as timer
+  actor IInterruptHandling as ih
+  actor SchedulingPolicy as policy
+  actor Scheduler as s
+  CurrentThread->NewThread : start
+  NewThread-->>CurrentThread : return
+  CurrentThread->NewThread : «create»
+  NewThread-->>CurrentThread : return
+  NewThread->TimerActor : «create»
+  TimerActor-->>NewThread : return
+  NewThread->TimerActor : trigger
+  TimerActor-->>NewThread : return
+  TimerActor->IInterruptHandling : softIRQ
+  IInterruptHandling-->>TimerActor : return
+  IInterruptHandling->IInterruptHandling : lock_irq
+  IInterruptHandling->IInterruptHandling : unlock_irq
+  IInterruptHandling->TimerActor : onInterrupt
+  TimerActor-->>IInterruptHandling : return
+  TimerActor->NewThread : onTimer
+  NewThread-->>TimerActor : return
+  NewThread-->>SchedulingPolicy : return
+  SchedulingPolicy-->>NewThread : return
+  SchedulingPolicy->SchedulingPolicy : addToReadyList
+  SchedulingPolicy-->>SchedulingPolicy : return
+  NewThread->Scheduler : reschedule
+  Scheduler-->>NewThread : return
+  Scheduler->SchedulingPolicy : selectNext
+  SchedulingPolicy-->>Scheduler : return
+  Scheduler->NewThread : select
+  NewThread-->>Scheduler : return

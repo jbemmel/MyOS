@@ -1,0 +1,812 @@
+<!--
+	Today (1/1/2004) I found out that Ant 1.6 somehow fucks up the output of the
+	apply task, causing weird crashes in bochs. Maybe 'spawn=true' will help, but I
+	don't feel like trying now. 1.5.4 still works ok
+	
+	18/8 Made 1.6.2 work, the trouble was the concat task with a new 'binary' attribute
+-->
+
+<project name="MyOS3.x" default="debug" xmlns:doxygen="antlib:org.doxygen.tools">
+
+<property name="src.dir" location="code/Core/src"/>
+<!-- Maximum number of independent build branches Ant may execute at once.
+     Override on the command line with, for example, -Dbuild.threads=2. -->
+<property name="build.threads" value="3"/>
+	
+<path id="cp">
+   <fileset dir="buildtools/lib">
+      <include name="*.jar"/>
+   </fileset>
+</path>
+
+<target name="all" depends="debug"/>
+	
+<target name="init">
+	<mkdir dir="${DIR}"/>
+	<mkdir dir="build/gen_src"/>
+
+	<!-- prepare helper classes -->
+    <javac destdir="build/gen_src" debug="on" optimize="off" source="1.4" classpathref="cp">
+		<classpath>
+			<!-- <fileset dir="lib" includes="*.jar"/> -->
+		</classpath>
+		<src path="buildtools/src"/>
+    </javac>
+
+</target>
+
+<target name="xslt">
+   <echo message="Processing ${XSLFILE} on ${XMLFILE}"/>
+
+   <java classname="net.sf.saxon.Transform" fork="true" dir="build/gen_src" failonerror="true">
+      <classpath>
+         <fileset dir="buildtools/lib" includes="*.jar"/>
+         <pathelement path="build/gen_src"/>
+      </classpath>
+      <arg value="-o"/>
+      <arg path='build/${XSLFILE}.out'/>
+      <arg path='${XMLFILE}'/>
+      <arg path='xslt/${XSLFILE}'/>
+   </java>
+   <!--style
+      processor="org.xmLP.ant.taskdefs.optional.Saxon7Liaison"
+      basedir="xml" destdir="build/jsp" extension=".jsp" style="${XSLFILE}"
+      includes="structure.xml">
+   </style-->
+</target>
+
+<target name="interfaces_xslt" unless="interfaces.up2date">
+   <taskdef resource="net/sf/antcontrib/antcontrib.properties"/>
+   <foreach param="XMLFILE" target="xslt">
+      <param name="XSLFILE" value="cg_interface.xsl"/>
+      <path>
+         <fileset dir="xml/Interfaces" includes="*.xml"/>
+      </path>
+   </foreach>
+   <touch file="${DIR}/interfaces.generated"/>
+</target>
+
+<target name="devices_xslt" unless="devices.up2date">
+   <taskdef resource="net/sf/antcontrib/antcontrib.properties"/>
+   <foreach param="XMLFILE" target="xslt">
+      <param name="XSLFILE" value="cg_device.xsl"/>
+      <path>
+         <fileset dir="xml/Devices" includes="*.xml"/>
+      </path>
+   </foreach>
+   <touch file="${DIR}/devices.generated"/>
+</target>
+
+<target name="components_xslt" unless="components.up2date">
+   <taskdef resource="net/sf/antcontrib/antcontrib.properties"/>
+   <foreach param="XMLFILE" target="xslt">
+      <param name="XSLFILE" value="cg_component.xsl"/>
+      <path>
+         <fileset dir="xml/Components" includes="*.xml"/>
+      </path>
+   </foreach>
+   <touch file="${DIR}/components.generated"/>
+</target>
+
+<target name="services_xslt" unless="services.up2date">
+   <taskdef resource="net/sf/antcontrib/antcontrib.properties"/>
+   <foreach param="XMLFILE" target="xslt">
+      <param name="XSLFILE" value="cg_service.xsl"/>
+      <path>
+         <fileset dir="xml/Services" includes="*.xml"/>
+      </path>
+   </foreach>
+   <touch file="${DIR}/services.generated"/>
+</target>
+	
+	
+<target name="drivers_xslt" unless="drivers.up2date">
+   <taskdef resource="net/sf/antcontrib/antcontrib.properties"/>
+   <foreach param="XMLFILE" target="xslt">
+      <param name="XSLFILE" value="cg_driver.xsl"/>
+      <path>
+         <fileset dir="xml/Drivers" includes="*.xml"/>
+      </path>
+   </foreach>
+   <touch file="${DIR}/drivers.generated"/>
+</target>
+		
+<target name="containers_xslt" unless="containers.up2date">
+   <taskdef resource="net/sf/antcontrib/antcontrib.properties"/>
+   <foreach param="XMLFILE" target="xslt">
+      <param name="XSLFILE" value="cg_container.xsl"/>
+      <path>
+         <fileset dir="xml/Containers" includes="*.xml"/>
+      </path>
+   </foreach>
+   <touch file="${DIR}/containers.generated"/>
+</target>
+
+<target name="config_xslt" depends="init">
+   <antcall target="xslt">
+      <param name="XSLFILE" value="cg_config.xsl"/>
+	  <param name="XMLFILE" value="xml/myosconfig.xml"/>
+   </antcall>
+</target>
+
+
+<target name="refresh_xslts" depends="init">
+   <uptodate property="interfaces.up2date" targetfile="${DIR}/interfaces.generated">
+      <srcfiles dir="xslt" includes="cg_interface.xsl"/>
+      <srcfiles dir="xml/Interfaces" includes="*.xml"/>
+      <srcfiles dir="xml" includes="myosconfig.xml"/>
+   </uptodate>
+   <uptodate property="devices.up2date" targetfile="${DIR}/devices.generated">
+      <srcfiles dir="xslt" includes="cg_device.xsl"/>
+      <srcfiles dir="xml/Devices" includes="*.xml"/>
+      <srcfiles dir="xml" includes="myosconfig.xml"/>
+   </uptodate>
+   
+   <uptodate property="components.up2date" targetfile="${DIR}/components.generated">
+      <srcfiles dir="xslt" includes="cg_component.xsl"/>
+      <srcfiles dir="xml/Components" includes="*.xml"/>
+      <srcfiles dir="xml" includes="myosconfig.xml"/>      
+   </uptodate>
+   <uptodate property="services.up2date" targetfile="${DIR}/services.generated">
+      <srcfiles dir="xslt" includes="cg_service.xsl"/>
+      <srcfiles dir="xml/Services" includes="*.xml"/>
+      <srcfiles dir="xml" includes="myosconfig.xml"/>      
+   </uptodate>	
+   <uptodate property="drivers.up2date" targetfile="${DIR}/drivers.generated">
+      <srcfiles dir="xslt" includes="cg_driver.xsl"/>
+      <srcfiles dir="xml/Drivers" includes="*.xml"/>
+      <srcfiles dir="xml" includes="myosconfig.xml"/>      
+   </uptodate>	
+   <uptodate property="containers.up2date" targetfile="${DIR}/containers.generated">
+      <srcfiles dir="xslt" includes="cg_container.xsl"/>
+      <srcfiles dir="xml/Containers" includes="*.xml"/>
+      <srcfiles dir="xml" includes="myosconfig.xml"/>      
+   </uptodate>   
+   <parallel>
+   <antcall target="interfaces_xslt"/>
+   <antcall target="devices_xslt"/>
+   <antcall target="components_xslt"/>
+   <antcall target="services_xslt"/>
+   <antcall target="drivers_xslt"/>
+   <antcall target="containers_xslt"/>
+   <antcall target="config_xslt"/>
+   </parallel>   
+</target>
+
+<target name="clean">
+	<delete dir="build"/>
+</target>
+
+<target name="tools">
+   <!--property name="mingw.dir" location="C:\cygwin\home\Jeroen\thisiscool-gcc\gcc-4.0"/-->
+   
+	<property name="cygwin.dir" location="C:/cygwin"/>
+	<property name="gcc.dir" location="${cygwin.dir}/usr/local/bin"/>
+	<!--property name="gcc.dir" location="${cygwin.dir}/home/Jeroen/gcc-4.2.3/host-i686-pc-cygwin/gcc"/-->
+	
+	<!--property name="gcc.dir" location="${cygwin.dir}/bin"/-->
+   
+   <property name="CXX"  location="${gcc.dir}/g++"/>
+   <!--property name="CXX"  location="buildtools/g++"/-->
+   
+   
+   <property name="GCC"  location="${gcc.dir}/gcc"/>
+   <!--property name="GCCLIBDIR"  location="${gcc.dir}/../lib/gcc/i686-pc-cygwin/4.3.1"/-->
+	
+   <!--property name="GCC"  location="e:\cygwin\usr\local\gcc-3.4.3\bin\gcc"/-->
+   
+   <property name="NASM" location="${basedir}/buildtools/nasmw"/>
+   <property name="AR"   location="${cygwin.dir}/bin/ar"/>
+   <property name="OBJFORMAT" value="pe-i386"/>
+   <property name="ASMFORMAT" value="bin"/>
+   <property name="LD" location="${cygwin.dir}/bin/ld"/>
+   <property name="NM" location="${cygwin.dir}/bin/nm"/>
+   <property name="OBJCOPY" location="${cygwin.dir}/bin/objcopy"/>
+   <!--property name="OBJCOPY" location="e:/cygwin/bin/objcopy"/--> 
+   <property name="OBJDUMP" location="${cygwin.dir}/bin/objdump"/>
+   <property name="SIZE" location="${cygwin.dir}/bin/size"/>
+   <property name="DLLTOOL" location="${cygwin.dir}/bin/dlltool"/>
+   <property name="GAWK" location="${cygwin.dir}/bin/gawk.exe"/>
+   <property name="GZIP" location="buildtools/bin/gzip.exe"/>   
+   <property name="GREP" location="${cygwin.dir}/bin/grep"/>
+</target>
+
+<target name="asm" depends="tools" description="Compiles .asm boot files">
+	<apply executable="${NASM}" dir="${src.dir}/Boot" dest="${src.dir}/Boot" parallel="false"
+    	   failonerror="true" skipemptyfilesets="true" relative="true">
+		<arg line="-f ${ASMFORMAT} -E..\..\..\..\build\nasm.errors"/>
+	  	<arg value='-o'/>
+	  	<targetfile/>
+	  	<srcfile/>
+	  	<fileset dir="${src.dir}/Boot">
+	    	<include name="**/*.asm"/>
+	  	</fileset>
+	  	<mapper type="regexp" from="([^/\\]*[/\\])*(.*).asm" to="\2"/>
+	</apply>
+	<echo message="asm.compile done"/>
+</target>
+
+<target name="cxx.compile" depends="tools"> 	<!-- TO DO: header dependencies -->
+
+	<!-- Force recompile if build.xml changed	
+	<dependset>
+		<srcfileset dir="." includes="build.xml"/>
+  		<targetfileset dir="${DIR}" includes="**/*.o"/>
+	</dependset>
+	-->
+
+	<!-- Force recompile of application if ant.include changed -->	
+	<dependset>
+		<srcfileset dir="code/Tests" includes="ant.include"/>
+  		<targetfileset dir="${DIR}" includes="**/doTest.o"/>
+	</dependset>
+	<mkdir dir="${DIR}"/>
+	<apply executable="${CXX}" dest="${DIR}" dir="${DIR}" parallel="true"
+      failonerror="true" skipemptyfilesets="true" relative="false">  <!-- verbose=true -->
+
+	  <!-- -fno-leading-underscore -save-temps -->
+    <arg line="${C++.FLAGS} -fomit-frame-pointer"/>
+    <!-- Default flags all targets, -malign-functions=3 for <= gcc 3.1 -->
+    <arg line="-c -DMYOS -pipe -static -mrtd -Woverloaded-virtual"/>	<!-- -Wall -->
+	  <arg line="-mregparm=3 -fno-rtti -fconserve-space"/>
+	  <!-- The second option allows trapping instructions (eg memory ref) to throw
+	       an exception -->
+      <arg line="-fexceptions -fnon-call-exceptions -fmessage-length=0"/>
+      <!--arg line="-fno-exceptions"/-->
+      <!--arg line="-ftls-model=initial-exec"/-->
+      <arg line="-falign-functions=8 -D__builtin_stdarg_start=__builtin_va_start -fzero-initialized-in-bss"/>
+      <!--arg line="-nostdinc -nostdinc++"/-->
+      <!--arg value="-fvtable-gc"--> <!-- not tested -->
+      <!--arg line="-fstack-check"/-->  <!-- not tested yet -->
+	
+	  <!-- Gcc 4.0 needs -fno-threadsafe-statics -->
+      <arg line="-fno-enforce-eh-specs -fno-threadsafe-statics -mpreferred-stack-boundary=2"/>
+	  <!--arg line="-fvisibility=hidden -fvisibility-inlines-hidden"/ not supported -->
+      <!--arg line="-ffunction-sections "/-->
+
+	  <!-- Enable for extra checks
+      <arg line="-Wpadded -Winline -Wshadow -Wcast-align -Wstrict-aliasing -Wmissing-noreturn -Wunused"/>
+      -->
+
+      <!-- Do *not* use this flag, it does not handle register variables over
+      	   try...catch blocks properly! -->
+	  <!-- arg line='-fnew-ra'/-->      	   		
+
+      <!--arg line="-fno-implement-inlines"/-->
+      <arg line="${C++.INCLUDES}"/>
+      <srcfile/>
+      
+      <fileset dir="${src.dir}" includes="**/*.cpp"/>
+
+	  <!-- for testing in Core
+	  <fileset dir="${basedir}" includesfile="code/Tests/ant.include"/>
+	  <fileset dir="${basedir}" includes="code/Tests/*.cpp"/>
+	  -->
+				
+      <mapper type="regexp" from="([^/\\]*[/\\])*(.*).cpp" to="\2.o"/>	<!-- Flatten directories -->
+	</apply>
+</target>
+
+<target name="module.compile" depends="tools">
+
+	<!-- Force recompile if build.xml changed -	
+	<dependset>
+		<srcfileset dir="." includes="build.xml"/>
+  		<targetfileset dir="${DIR}" includes="**/*.o"/>
+	</dependset>
+	-->
+
+	<!-- Force recompile of application if ant.include changed -->	
+	<dependset>
+		<srcfileset dir="code/Tests" includes="ant.include"/>
+  		<targetfileset dir="${DIR}" includes="**/*.o"/>
+	</dependset>
+	<mkdir dir="${DIR}"/>
+	<apply executable="${CXX}" dest="${DIR}" dir="${DIR}" parallel="true"
+      failonerror="true" skipemptyfilesets="true" relative="false">  <!-- verbose=true -->
+
+	  <!-- -fno-leading-underscore  -->
+      <arg line="${C++.FLAGS} -fleading-underscore -fomit-frame-pointer"/>
+      <!-- Default flags all targets, -malign-functions=3 for <= gcc 3.1 -->
+      <arg line="-c -DMYOS -DMODULE -pipe -shared -mrtd -Woverloaded-virtual"/>	<!-- -Wall -->
+	  <arg line="-mregparm=3 -fno-rtti -fconserve-space"/>
+	  <!-- -fPIC not needed, all code is position independent -->
+
+	  <!-- The second option allows trapping instructions (eg memory ref) to throw
+	       an exception 
+	       
+	       -fvisibility=hidden means all symbols are considered local, unless explicitly declared
+	       otherwise (see http://gcc.gnu.org/wiki/Visibility)
+	  -->
+		
+      <arg line="-fexceptions -fnon-call-exceptions -fmessage-length=0"/>
+      <!--arg line="-fno-exceptions"/-->
+      <!--arg line="-ftls-model=initial-exec"/-->
+      <arg line="-falign-functions=8 -D__builtin_stdarg_start=__builtin_va_start -fzero-initialized-in-bss"/>
+      <!--arg value="-fvtable-gc"--> <!-- not tested -->
+      <!--arg line="-fstack-check"/-->  <!-- not tested yet -->
+	
+	  <!-- Gcc 4.0 needs -fno-threadsafe-statics -->
+      <arg line="-fno-enforce-eh-specs -fno-threadsafe-statics -mpreferred-stack-boundary=2"/>
+      <!--arg line="-ffunction-sections "/-->
+
+	  <!-- Enable for extra checks
+      <arg line="-Wpadded -Winline -Wshadow -Wcast-align -Wstrict-aliasing -Wmissing-noreturn -Wunused"/>
+      -->
+
+      <!-- Do *not* use this flag, it does not handle register variables over
+      	   try...catch blocks properly! -->
+	  <!-- arg line='-fnew-ra'/-->      	   		
+
+      <!--arg line="-fno-implement-inlines"/-->
+      <arg line="${C++.INCLUDES}"/>
+      <srcfile/>
+	  
+      <fileset dir="${src.dir}" includes="**/*.cpp"/>
+	  
+	  <!-- for testing -->
+	  <fileset dir="${basedir}" includesfile="code/Tests/ant.include"/>
+		
+      <mapper type="regexp" from="([^/\\]*[/\\])*(.*).cpp" to="\2.o"/>	<!-- Flatten directories -->
+	</apply>
+</target>	
+	
+<target name="cppbuild">
+	<parallel threadCount="${build.threads}" failonany="true">
+		<antcall target="cxx.compile">
+			<param name="DIR" value="${DIR}/Core"/>
+			<param name="C++.INCLUDES" value='-I"${basedir}/code/Core/include" -I"${src.dir}" '/>
+		</antcall>
+		<antcall target="module.compile">
+			<param name="DIR" value="${DIR}/Atmosphere"/>
+			<!-- todo remove Core/src dir from include here, for now needed -->
+			<param name="C++.INCLUDES" value='-I"${basedir}/code/Core/include" -I"${basedir}/code/Core/src" -I"${basedir}/code/Atmosphere/include" -I"${basedir}/code/Atmosphere/src" '/>
+			<param name="src.dir" value="code/Atmosphere/src"/>		
+		</antcall>
+		<antcall target="module.compile">
+			<param name="DIR" value="${DIR}/TestModule"/>
+			<param name="C++.INCLUDES" value='-I"${basedir}/code/Core/include" -I"${basedir}/code/Atmosphere/include" -I"${basedir}/code/Atmosphere/src" -I"${src.dir}" '/>
+			<param name="src.dir" value="code/Tests/Module"/>
+		</antcall>
+	</parallel>
+</target>
+
+<target name="cppdepend">
+   <property name="DIR" value="build/debug"/>
+	<antcall target="cxx.compile">
+		<param name="C++.FLAGS" value="-MMD"/>
+		<param name="C++.INCLUDES" value='-I"${basedir}/code/Core/include" -I"${src.dir}" '/>
+	</antcall>
+</target>
+
+<!-- When object files are packed in a library, ld is smarter and removes unused code ! -->
+<target name="makelib" depends="tools">
+
+   <!-- Could strip all .o files here? Sometimes strips too much -->
+   <!-- apply executable="${basedir}/buildtools/stripgcc" dir="${DIR}">
+      <srcfile/>
+      <fileset dir="${DIR}" includes="*.o"/>
+   </apply -->
+
+   <!-- Copy prebuilt binaries to build dir -->
+   <copy todir="${DIR}" flatten="true">
+	<fileset dir="${basedir}/code" includes="**/*.o"/>
+   </copy>
+	
+  <echo message="Using ${AR} for collecting all .o files in ${DIR}/libAllobjs.a..."/>
+	<apply executable="${AR}" dest="${DIR}" parallel="true" dir="${DIR}"
+      failonerror="true" skipemptyfilesets="true">
+	  <arg line="crus"/>    <!-- Create, replace, update, ranlib (s) -->
+	  <targetfile/>
+	  <srcfile/>
+	  <fileset dir="${DIR}">
+	      <include name="**/*.o"/>	  	  
+	      <exclude name="${MAKELIB.EXCLUDE}"/>
+	  </fileset>
+		
+	  <!-- temp test
+	  <fileset dir="${DIR}/../Atmosphere">
+		 <include name="**/*.o"/>	  	  
+    </fileset>-->
+		
+	  <mapper type="merge" to="libAllobjs.a"/>
+	</apply>
+	
+	<!-- Also generate export tables -->
+	<echo message="Running ${DLLTOOL} for generating exports table..."/>
+	<apply executable="${DLLTOOL}" dir="${DIR}">
+	   <!-- -U: adds an extra _, because gcc adds an extra underscore(_) to undefined symbols -->
+	   <arg line='-e exports.elf -U'/>
+	   <srcfile/>
+	   <fileset dir="${DIR}" includes="libAllobjs.a"/>
+	</apply>
+	
+</target>
+
+<property name="linkscript.file" location="buildtools/MyOS.linkscript"/>
+
+<target name="link" depends="tools" description="Links all object files together to an elf library">
+
+	<!-- Force remaking if some files change -->
+	<dependset>
+		<srcfilelist dir="." files="build.xml"/>
+		<srcfilelist dir="buildtools" files="MyOS.linkscript"/>
+		<targetfileset dir="${DIR}" includes="kernel.elf"/>
+	</dependset>
+
+	<!-- Strip out those stupid duplicate constructors/destructors
+        Must be done *before* final linking, otherwise zeroes are inserted
+        and linear address space is wasted
+   -
+	<apply executable="${basedir}/buildtools/stripgcc" dir="${DIR}">
+		<srcfile/>
+		<fileset dir="${DIR}" includes="libAllobjs.a"/>
+	</apply>
+   -->
+
+	<!-- Generate custom part of map file 
+	
+	   Problem: This way *all* components are included, not only the ones in the configuration!
+	   
+	<apply executable="java" dest="${DIR}" parallel="true" dir="${DIR}"
+    	skipemptyfilesets="true" failonerror="true" relative="true"
+    	outputproperty="mapfile">
+		<arg line="-cp ${basedir}/build/gen_src util.MapFileGenerator"/>
+		
+	  <fileset dir="src" includes="**/*.cpp" excludes="Init/**"/>
+	  <fileset dir="build/gen_src" includes="**/*.cpp"/>
+	  <mapper type="merge" to="custom.map"/>		
+	</apply>
+   -->
+
+    <copy file="${linkscript.file}" tofile="${DIR}/Core/myos.script" overwrite="true">
+		<!--filterset>
+			<filter token="COMPONENT_SECTIONS" value="${mapfile}"/>
+		</filterset-->
+    </copy>
+
+	<echo message="Linking..."/>
+	<!-- temporary workaround -->
+	<!--copy file="${DIR}/Core/DoDecompress.o" tofile="${DIR}/DoDecompress.o" overwrite="true"/-->
+	<apply executable="${LD}" dest="${DIR}" parallel="true" dir="${DIR}/Core"
+      skipemptyfilesets="true" failonerror="true">
+	  <arg line='-T "myos.script"'/>
+	  <arg line="-Map MyOS.map"/> <!-- - -output-def MyOS.def - -out-implib kernel.imp-->
+	  <arg line="--gc-sections --strip-discarded --warn-constructors --image-base 0"/>
+	  <!-- <arg line="-b elf32-i386"/> -->
+	  <arg value="-Bstatic"/>
+	  <arg value="-O5"/>
+	  
+	  <!-- Link with GCC lib to get gxx_personality symbol for exception handling
+	  <arg line='-L${GCCLIBDIR} -lgcc'/>
+	  -->
+		
+      <!--arg value="-verbose"/-->
+	  <arg value="-o"/>
+	  <targetfile/>
+	  <srcfile/>
+	  <fileset dir="${DIR}/Core">
+		<include name="libAllobjs.a"/>   <!-- All .o files packed in 1 archive :) -->	  	
+	  </fileset>
+	  <mapper type="merge" to="kernel.elf"/>
+	</apply>
+
+	<apply executable="${SIZE}" dir="${DIR}">
+		<srcfile/>
+		<fileset dir="${DIR}" includes="kernel.elf"/>
+	</apply>
+	
+	<apply executable="${OBJDUMP}" dir="${DIR}" dest="${DIR}" output="${DIR}/kernel.asm">
+		<arg line='-d -C -S -l'/>
+		<srcfile/>
+		<fileset dir="${DIR}" includes="kernel.elf"/>
+		<mapper type="merge" to="kernel.asm"/>
+	</apply>
+</target>
+
+<target name="link.module" depends="tools" description="Links all object files together to a kernel module">
+
+	<!-- Force remaking if some files change -->
+	<dependset>
+		<srcfilelist dir="." files="build.xml"/>
+		<!--srcfilelist dir="buildtools" files="MyOS.linkscript"/-->
+		<targetfileset dir="${DIR}" includes="module.*"/>
+	</dependset>
+
+  <copy file="buildtools/MyOS_module.linkscript" tofile="${DIR}/link.script" overwrite="true"/>
+
+	<echo message="Linking into ${DIR}/../module.pe"/>
+	<apply executable="${LD}" dest="${DIR}" parallel="true" dir="${DIR}"
+      skipemptyfilesets="true" failonerror="true">
+	  <!--arg line='-T "link.script"'/--> <!-- ld crashes on this, problem with COMDAT -->
+	  <arg line="-Map MyOSModule.map --print-gc-sections --no-omagic"/>
+	  <arg line="--gc-sections --strip-discarded --warn-constructors --image-base 0"/>
+	  <!-- <arg line="-b elf32-i386"/> does not work, default ld cannot generate elf -->
+	  
+	  <!-- -Bsymbolic should cause as many symbols to be resolved as possible -->
+	  <!-- -u _initModule forces the linker to include it, and any dependencies -->
+	  <arg line="-Bstatic -Bsymbolic -u _initModule"/>
+		
+	  <!-- relocatable (-r) is mutually exclusive with -shared -->
+	  <arg line="-O5 --relocatable -init _initModule"/>
+	  <!--arg line="- -enable-auto-import - -disable-runtime-pseudo-reloc"/-->
+		
+	  <!--  - -export-all-symbols, no instead use dllexport -->
+      <!--arg value="-verbose"/-->
+	  <arg value="-o"/>
+	  <targetfile/>
+	  <srcfile/>
+	  <fileset dir="${DIR}">
+		<include name="libAllobjs.a"/>   <!-- All .o files packed in 1 archive :) -->	  	
+	  </fileset>
+	  <!-- For use with dllimport
+	  <fileset dir="${DIR}/../Core">
+	  	<include name="kernel.imp"/>
+	  </fileset>
+	  -->
+	  <mapper type="merge" to="module.pe"/>
+	</apply>
+    
+	<echo message="Converting PE to ELF..."/>
+	<apply executable="${OBJCOPY}" dest="${DIR}/.." dir="${DIR}">
+	   <srcfile/>
+	   <arg line="-O elf32-i386 --readonly-text --strip-unneeded"/>
+       <arg value="-v"/>    
+	   <targetfile/>
+	   <fileset dir="${DIR}" includes="module.pe"/>
+	   <mapper type="merge" to="module.elf"/>
+    </apply>
+	
+	<apply executable="${SIZE}" dir="${DIR}">
+		<srcfile/>
+		<fileset dir="${DIR}" includes="module.elf"/>
+	</apply>
+</target>	
+	
+<target name="zip" depends="tools"
+   description="Splits the kernel into a zipped and a bootstrap part, and combines both">
+	
+	<!-- Force remaking if some files change -->
+  <dependset>
+	  <srcfilelist dir="${DIR}" files="module.elf"/>
+	  <targetfileset dir="${DIR}" includes="kernel.bin.core, kernel.bin"/>
+	</dependset>	
+	
+  <apply executable="${OBJCOPY}" dest="${DIR}" dir="${DIR}">
+    <arg line="--only-section=.text.uz"/>
+    <srcfile/>
+    <arg line="-O binary"/>
+    <arg value="-v"/>    
+    <targetfile/>
+    <fileset dir="${DIR}" includes="kernel.elf"/>
+    <mapper type="merge" to="kernel.bin.loader"/>
+  </apply>
+
+  <!-- Strip padding under CYGWIN -->
+  <!-- antcall target="strip_padding"/ -->
+
+  <apply executable="${OBJCOPY}" dest="${DIR}" dir="${DIR}">
+    <arg line="-g -S"/>
+    <arg line="--remove-section=.text.uz"/>
+  	<arg line="-R .data"/>
+  	<arg line="-R .bss"/>
+    <arg line="-R .stack"/>   <!-- causes crash.. -->
+    <srcfile/>
+    <arg line="-O binary"/>
+    <arg value="-v"/>
+    <targetfile/>
+    <fileset dir="${DIR}" includes="kernel.elf"/>
+    <mapper type="merge" to="kernel.bin.code"/>
+  </apply>
+	
+  <apply executable="${OBJCOPY}" dest="${DIR}" dir="${DIR}">
+  	<arg line="-g -S"/>
+  	<arg line="--only-section=.data"/>
+    <srcfile/>
+    <arg line="-O binary"/>
+    <arg value="-v"/>    
+    <targetfile/>
+    <fileset dir="${DIR}" includes="kernel.elf"/>
+    <mapper type="merge" to="kernel.bin.data"/>
+  </apply>
+	
+  <concat destfile="${DIR}/kernel.bin.core" binary="true">   <!-- binary since ant 1.6.2 -->
+    <filelist dir="${DIR}" files="kernel.bin.code,kernel.bin.data,module.elf"/>
+  </concat>
+  		
+  <!-- <gzip src="${DIR}/kernel.core" zipfile="${DIR}/kernel.core.gz"/> , cannot do "-9" -->
+	<apply executable="${GZIP}" dir="${DIR}" relative="true">
+		<arg value="-9"/>		<!-- best compression -->
+		<arg value="-f"/>		<!-- overwrite -->
+		<fileset dir="${DIR}" includes="kernel.bin.core"/>
+	</apply>
+	<!--apply executable="cat" parallel="true" dir="${DIR}" output="${DIR}/kernel.bin" skipemptyfilesets="true">
+		<fileset dir="${DIR}" includes="kernel.bin.*"/>
+	</apply-->
+	<concat destfile="${DIR}/kernel.bin" binary="true">   <!-- binary since ant 1.6.2 -->
+	  <filelist dir="code/Core/src/Boot" files="bootphase2"/>
+    <filelist dir="${DIR}" files="kernel.bin.loader,kernel.bin.core.gz"/>
+  </concat>
+
+</target>
+
+<target name="createflopimage" unless="LINUX" depends="tools">
+	<mkdir dir="${DIR}/floppy"/>
+	<copy file="${DIR}/kernel.bin" todir="${DIR}/floppy"/>
+	<apply executable="${basedir}/buildtools/bin/bfi.exe" dir="${DIR}" type="dir">
+		<arg line='-t="144" -f=floppy.img -b=../../code/Core/src/Boot/floppy.bootsec'/>
+		<!--arg line='-t="144" -f=floppy.img -b=../../src/Init/grub.mbr'/-->
+		<fileset dir="${DIR}" includes="floppy"/>
+	</apply>
+	<!--copy file="${DIR}/floppy.img" todir="E:/bochs-2.0"/-->
+	<property name="bochsdir" location="C:\Program Files\Bochs-2.5.1"/>
+	<copy file="${DIR}/floppy.img" todir="${bochsdir}"/>
+	
+	<echo message="Executing ${GAWK}..."/>
+	<apply executable="${GAWK}" dir="${DIR}" output="${bochsdir}/MyOS.map">
+    <arg line="'$1 ~ /0xff8/ &amp;&amp; (($2 ~ /MyOS::/)||($2 ~ _)) { print $1,$2 }'"/>
+    <fileset dir="${DIR}/Core" includes="MyOS.map"/>
+	</apply>
+	<!--copy file="${DIR}/Core/MyOS.map" todir="${bochsdir}"/-->
+</target>
+
+<!--target name="gperf">
+   <delete file="build/gen_src/hash_methods.cpp"/>
+    <apply executable="E:\cygwin\bin\gperf" dir="build" dest="build/gen_src"
+        relative="true" output="build/gen_src/hash_methods.cpp" append="true">
+        <fileset dir="build" includes="*.gperf"/>
+        <arg line="-o -c -C -E -7 -t"/>
+        <arg line="-Z "/><targetfile/>
+        <arg line="-L C++"/>
+        <srcfile/>
+        <mapper type="glob" from="*.gperf" to="*_hash"/>
+    </apply>
+</target-->
+
+<!--target name="gperfs">
+   <taskdef resource="net/sf/antcontrib/antcontrib.properties"/>
+   <foreach param="gperffile" target="gperf">
+      <path>
+         <fileset dir="build" includes="*.gperf"/>
+      </path>
+   </foreach>
+</target-->
+
+
+<target name="dist" description="Builds a tar zip archive of all sources">
+   <mkdir dir="build"/>
+   <tstamp/>
+   <zip zipfile="build/myos3x-${DSTAMP}.zip" basedir="${basedir}" update="false"
+      excludes="build/**,**/*.class,**/*.jar,**/*.exe"/>
+</target>
+
+<target name="buildnumber">
+	<!-- Maintain build number -->
+	<propertyfile
+    	file="build.data"
+	    comment="My properties">
+		<entry key="builddate" type="date" value="now" pattern="dd-MM-yyyy HH:mm:ss"/>
+		<entry key="build" type="int" default="0" operation="+"/>
+	</propertyfile>	
+	<replace 
+	    file="build/gen_src/myosconfig.h"
+	    propertyFile="build.data">
+	  <replacefilter token="@build@"  	 property="build"/>
+	  <replacefilter token="@builddate@" property="builddate"/>
+	</replace>
+</target>
+
+<target name="debug" description="Compiles the MyOS kernel with DEBUG flags">
+	<property name="DIR" value="build/debug"/>
+
+	<!--antcall target="refresh_xslts"/-->
+	<antcall target="config_xslt"/>
+	<antcall target="buildnumber"/>
+	
+	<!--antcall target="asm.compile"/-->
+	<antcall target="cppbuild">
+	   <param name="C++.FLAGS" value="-O2 -DDEBUG"/>
+	</antcall>
+	<parallel threadCount="${build.threads}" failonany="true">
+		<antcall target="makelib">
+		  <param name="DIR" value="${DIR}/Core"/>
+		</antcall>	
+		<antcall target="makelib">
+		  <param name="DIR" value="${DIR}/Atmosphere"/>
+		</antcall>
+	</parallel>
+	<parallel threadCount="${build.threads}" failonany="true">
+		<antcall target="link"/>
+		<antcall target="link.module">
+		  <param name="DIR" value="${DIR}/Atmosphere"/>
+		</antcall>
+	</parallel>
+	<antcall target="zip"/>
+	<antcall target="createflopimage"/>
+</target>
+	
+<target name="debug_mod" depends="debug" description="For module debugging">
+	<delete file="${DIR}/module.elf"/>
+	
+	<antcall target="makelib">
+	   <param name="DIR" value="${DIR}/TestModule"/>
+	</antcall>
+	<antcall target="link.module">
+	   <param name="DIR" value="${DIR}/TestModule"/>
+	</antcall>
+	<antcall target="zip"/>
+	<antcall target="createflopimage"/>	
+</target>
+	
+
+<target name="optimize" description="Compiles the MyOS kernel with OPTIMIZE flags">
+	<property name="DIR" value="build/optimize"/>
+
+	<!--antcall target="refresh_xslts"/-->
+	<antcall target="config_xslt"/>
+	<antcall target="buildnumber"/>
+	
+	<!--antcall target="asm.compile"/-->
+	<antcall target="cppbuild">
+	   <param name="C++.FLAGS" value="-O4 -mtune=pentium4"/>
+    </antcall>
+	<parallel threadCount="${build.threads}" failonany="true">
+		<antcall target="makelib">
+			<param name="DIR" value="${DIR}/Core"/>
+		</antcall>
+		<antcall target="makelib">
+		  <param name="DIR" value="${DIR}/Atmosphere"/>
+		</antcall>
+	</parallel>
+	<parallel threadCount="${build.threads}" failonany="true">
+		<antcall target="link"/>
+		<antcall target="link.module">
+		  <param name="DIR" value="${DIR}/Atmosphere"/>
+		</antcall>
+	</parallel>
+	<antcall target="zip"/>
+	<antcall target="createflopimage"/>
+</target>
+
+
+<target name="compileonly" description="For checking C++ syntax">
+	<property name="DIR" value="build/debug"/>
+
+	<!-- Force rechecking *every* .cpp file if any .h file under /src changed -->
+	<dependset>
+		<srcfileset dir="src" includes="**/*.h,**/*.inc,**/*.hpp"/>
+		<srcfileset dir="xml" includes="**/*.xml"/>
+  		<targetfileset dir="${DIR}" includes="**/*.o"/>
+	</dependset>
+
+	<antcall target="cxx.compile">
+		<param name="C++.FLAGS" value="-O -DDEBUG -mregparm=3 -fno-rtti -fconserve-space -fsyntax-only"/>
+	</antcall>
+</target>
+
+<!-- see http://www.doomdark.org/doomdark/proj/jug/ -->
+<target name="uuid" description="Generates a new UUID">
+   <java classname="org.doomdark.uuid.Jug" fork="true" failonerror="true">
+      <classpath>
+         <fileset dir="buildtools/bin" includes="jug.jar"/>
+      </classpath>
+      <arg value="random-based"/>
+	</java>      
+</target>
+
+<target name="html" description="Generates HTML system documentation">
+	<mkdir dir="build/html" /> 
+	<!--doxygen:doxygen outputDirectory="build" 
+		ignoreVersion="true"
+        input="src" 
+        recursive="yes"
+        generateLatex="false"
+        projectName="MyOS3.x" 
+        projectNumber = "3.x" 
+        generateTreeview = "yes"
+        sourceBrowser="yes"
+	 /-->
+	 <doxygen:doxygen configFilename="${basedir}/doxyfile"/>
+</target>
+	
+</project>

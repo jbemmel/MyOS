@@ -1,0 +1,5 @@
+<context name="Devices/USB">
+<device uuid="9f39c681-0f99-4c32-8502-eff890aace58" name="IUSBDevice" url="http://www.myos.org/Interfaces" version="1">
+ <native file="Devices/USB/IUSBDevice.inc"/>
+</device>
+</context>

@@ -1,0 +1,6 @@
+<context name="MultiProcessing">
+<interface uuid="2c902461-c339-4008-ad73-84732a7c9f70" name="IMultiProcessing" url="http://www.myos.org/Interfaces" version="1">
+	<native file="MultiProcessing/IMultiProcessing.inc"/>
+	<method name="listProcesses" kind="get" stream="true"/>
+</interface>
+</context>

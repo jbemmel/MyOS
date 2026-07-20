@@ -1,0 +1,14 @@
+<context name="FS/FAT">
+<component name="FAT" uuid="c94a668a-7378-45b7-adbc-f6a0b32bb279">
+<version vendor="MyOS" major="1" minor="1"/>
+<requires>
+ <!--interfaceref name="IDisplay" uuid="abe1beba-0457-4375-8a3e-48809a0d5838"/-->
+ <interfaceref name="IVirtualMemory" uuid="2a147d6f-cab0-43b8-8b9f-4687312c101d"/>
+ <interfaceref name="IDemandPaging" uuid="c5f5093d-07d2-4b5e-8b01-e77406bfa43e"/>
+ <new blockorder="0"/>
+</requires> 
+<provides>
+ <interfaceref name="IFATFS" uuid="0c6ad02d-8042-4a4d-ba4f-d336289ccc3b"/>
+</provides>
+</component>
+</context>

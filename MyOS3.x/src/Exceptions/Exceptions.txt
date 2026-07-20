@@ -1,0 +1,41 @@
+Exceptions are tricky stuff, especially the mess that GCC makes of them (supporting every 
+case and language and linkage and so on)
+
+Basic mechanism works like this:
+
+1) Upon entry to a function that needs to deal with exceptions, GCC generates 
+   code to setup an exception handling frame (equivalent to a 'setjmp')
+   -> _Unwind_SjLj_Register is called with a pointer to this frame, and adds it
+      to a linked list (per thread) of exception frames
+      
+   Cases include:
+   - objects declared on the stack, for which a destructor must be called
+   - functions containing 'try' statements      
+      
+   Careful optimization is needed here, e.g. 'do nothing' destructors should
+   *not* be declared as they cause generation of exception frames & cleanup code
+      
+2) A 'try' statement does nothing additional, the context is already created
+3) A 'throw' statements allocates memory for the exception thrown, even if you
+   don't say 'new'. 'throw 3' will allocate 4 bytes for the int.
+   -> '__cxa_allocate_exception' is called with the size of the exception
+   GCC's runtime allocates an additional header for the exception here
+
+   After allocation the object is initialized (values & type) and passed to '__cxa_throw'.
+   This function is not expected to return, so it needs to do a 'longjmp' at one
+   point.
+   
+4) 'cxa_throw' will need to look for two things: cleanup code (destructors) and a suitable 
+   exception handler. To do this, it needs to parse the language (C++) specific
+   data in the context. This part is really hard to follow in the C++ library code
+
+   The search & execute is done in two phases, as is common for SEH
+   (see http://www.microsoft.com/msj/0197/exception/exception.aspx)
+   The reason is that the current frame must first get a chance to do any cleanup,
+   before the stackframe is unwound (and all stack objects bogus)
+
+   
+NB The reason why C++ doesn't have a 'finally' keyword are destructors: You create
+   the same effect with stub classes that perform things that would normally go in
+   the 'finally' section
+   

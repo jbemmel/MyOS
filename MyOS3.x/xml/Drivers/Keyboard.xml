@@ -1,0 +1,11 @@
+<context name="Drivers/Keyboard/Standard">
+<driver name="Keyboard" uuid="3cc231d8-2c39-4bf5-80ce-5427e7b5b549">
+<version vendor="MyOS" major="2" minor="1"/>
+<requires>
+ <interfaceref name="IInterruptHandling" uuid="26468cf9-fa5b-4de7-9914-eec11e667215"/>
+</requires>
+<provides>
+<deviceref uuid="0f8c2323-3fea-4a9e-b540-4b5ec7592697" name="IKeyboard" version="1.1"/>
+</provides>
+</driver>
+</context>

@@ -1,0 +1,13 @@
+<context name="Timer">
+<component name="Timer" uuid="a000f904-ce87-4c4a-a055-804df647ec5b">
+<version vendor="MyOS" major="2" minor="1"/>
+<requires>
+ <interfaceref name="IVirtualMemory" uuid="2a147d6f-cab0-43b8-8b9f-4687312c101d"/>
+ <interfaceref name="IInterruptHandling" uuid="26468cf9-fa5b-4de7-9914-eec11e667215"/>
+ <new blockorder="0"/>
+</requires>
+<provides>
+<interfaceref uuid="cd5a76a0-bf79-4750-8356-9f8a0627465a" name="ITiming" version="1.1"/>
+</provides>
+</component>
+</context>

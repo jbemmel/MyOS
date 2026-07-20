@@ -1,0 +1,206 @@
+#ifndef DEFS_H
+#define DEFS_H
+
+#include "asm.h"    // ASM
+
+/// Borrowed from linux, usable to check offsets in structures
+#define OFFSET_OF(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+#define _OFFSET_OF(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+
+// Use this macro to define class constants
+#define CLASSCONSTANT(type,name,value) enum { name = value }
+// alternative: static const type name = value, but not all compilers support that
+
+#ifdef COMPONENTCOMPILATION
+// For containers, .bss should not be used -> explicit initializer
+#  define INITINSTANCE =0
+#else
+#  define INITINSTANCE
+#endif
+
+/**
+ * By default, all classes and functions are made 'hidden' using a compiler option
+ * Override this for specific functions and classes in a module
+ */ 
+#define MYOS_MODULE_PRIVATE __attribute__ ((visibility("hidden")))
+#define MYOS_MODULE_PUBLIC  __attribute__ ((visibility("default")))
+
+/**
+ * GCC generates a special section containing exported symbol names (mangled)
+ */
+#if !defined(MODULE) && defined(_WIN32)
+#  define EXPORT __declspec(dllexport)
+#elif !defined(MODULE) && defined(__GNUC__)
+#  define EXPORT MYOS_MODULE_PUBLIC
+#else
+// Modules resolve their imports against the kernel at load time.
+#  define EXPORT
+#endif
+
+#ifdef __GNUC__
+// GCC specific: put code in INIT section
+#define STARTSECTION __attribute__ ((section("START")))
+#define MAGICSECTION __attribute__ ((section("MAGIC")))
+#define INITSECTION __attribute__ ((section(".text.init")))
+#define USERSECTION __attribute__ ((section(".text.user")))
+#define CODESECTION __attribute__ ((section(".text")))
+#define DATASECTION __attribute__ ((section(".data")))
+#define BSSSECTION __attribute__ ((section(".bss")))
+#define TABLESECTION __attribute__ ((section(".table")))
+#define NOSECTION __attribute__ ((section(".nosection")))
+#define UNCOMPRESSEDSECTION __attribute__ ((section(".rodata.UNCOMPRESSED")))
+
+#define NORETURN __attribute__ ((noreturn))
+#define NOINLINE __attribute__ ((noinline))
+#define NOTHROW __attribute__ ((nothrow))
+#define REGPARM(n) __attribute__ ((regparm(n)))
+#define PACKED __attribute__ ((packed))
+#define UNUSED __attribute__((unused))
+#define CONSTFUNC __attribute__((const))
+#define ASMNAME(n) asm(n)
+#define ALIGNED(n) __attribute__ ((aligned (n)))
+
+#define MALLOC_FUNCTION __attribute__((malloc))
+
+// These should be in DWORD class
+
+// this forces in-memory and
+#define mem_write_and(var,value) __asm__( "andl %1, %0" :  :  "m"(var), "r"(value) )
+
+// this forces in-memory or
+#define mem_write_or(var,value)	__asm__( "orl %1, %0" :  :  "m"(var), "r"(value) )
+
+// this beeps ? from linux page.h
+#define beep() __asm__ __volatile( ".byte 0xf, 0xb" );
+
+#else
+
+#define STARTSECTION
+#define MAGICSECTION
+#define INITSECTION
+#define USERSECTION
+#define CODESECTION
+#define DATASECTION
+#define NORETURN
+#define NOINLINE
+#define NOTHROW
+#define REGPARM(n)
+#define BSSSECTION
+#define INITSECTION
+#define NOSECTION
+#define TABLESECTION
+#define UNCOMPRESSEDSECTION
+#define PACKED
+#define UNUSED
+#define CONSTFUNC
+#define ASMNAME(n)
+#define ALIGNED(n)
+
+#define mem_write_and(var,value)	var&=value
+#define mem_write_or(var,value)		var|=value
+
+// Turn off some warnings
+#pragma warning(disable:4290)	// exception specs ignored
+
+#endif
+
+
+// placement new    in <memory>
+// #ifndef __NEW__
+// inline void *operator new( size_t, void *location)	{ return location; }
+// #endif
+
+#ifdef __cplusplus
+
+// fast division
+template <unsigned divisor>
+inline int FASTIDIV( int n )
+{
+	// n / divisor == (n * (2^32/divisor)) >> 32, roughly equal to ((2^32-1) / divisor + 1) >> 32 ( == EDX !!! )
+	// +1 is important! Example: 195001 / 195000 => FASTIDIV<195000>(195001) == 0 otherwise !
+	int result;
+	__asm__ ( "imul %3" : "=d" (result), "=a"(n) : "1" (n), "r" ( (0xffffffff / divisor) + 1 ) ); 	// eax clobbered !!
+	return result;
+}
+
+// fast unsigned division
+template <unsigned divisor>
+inline unsigned FASTDIV( unsigned n )
+{
+	// n / divisor == (n * (2^32/divisor)) >> 32, roughly equal to ((2^32-1) / divisor + 1) >> 32 ( == EDX !!! )
+	// +1 is important! Example: 195001 / 195000 => FASTIDIV<195000>(195001) == 0 otherwise !
+   //
+   // Found a slightly different version: a/b == (int)(((2^32)+b-1)/b) * (a) / (2^32)
+   // Not sure if that is correct
+   //
+	int result;
+	ASM ( "mul %3" : "=d" (result), "=a"(n) : "1" (n), "r" ( (0xffffffff / divisor) + 1 ) ); 	// eax clobbered !!
+	return result;
+}
+
+#endif
+
+// to be used with FASTIDIV above
+inline int RECIPROCE( int divisor )
+{
+    // ASSERT( divisor, A_FATAL );
+    return (0xffffffff/divisor)+1;
+}
+
+inline unsigned RECIPROCE_U( unsigned divisor )
+{
+    // ASSERT( divisor, A_FATAL );
+    return (0xffffffff/divisor)+1;
+}
+
+
+// reciproce should be (0xffffffff / divisor)+1
+inline int FASTIDIV( int n, int reciproce )
+{
+	int result;
+	ASM( "imul %3" : "=d" (result), "=a"(n) : "1" (n), "r" ( reciproce ) );
+	return result;
+}
+
+inline unsigned FASTDIV( unsigned n, unsigned reciproce )
+{
+	unsigned result;
+	ASM( "mul %3" : "=d" (result), "=a"(n) : "1" (n), "r" ( reciproce ) );
+	return result;
+}
+
+
+/// Divide, rounded up
+inline int DIV_ROUND_UP( int x, int by )
+{
+    return ((x+by-1)/by);
+}
+
+// Takes 32-<SHIFT> MSB bits from p[0] | <SHIFT> LSB from p[1] 
+template <unsigned char SHIFT>
+inline static unsigned shr( const unsigned* p ) {
+   unsigned r;
+   __asm( "shrdl %3, %2, %0"
+        : "=r"(r)
+        : "0"(p[0]), "r"(p[1]), "N"(SHIFT)
+   );
+   return r;
+}
+
+// Takes 32-<SHIFT> LSB bits from p[0] | <SHIFT> MSB from p[1] 
+template <unsigned char SHIFT>
+inline static unsigned shl( const unsigned* p ) {
+   unsigned r;
+   __asm( "shldl %3, %2, %0"
+        : "=r"(r)
+        : "0"(p[0]), "r"(p[1]), "N"(SHIFT)
+   );
+   return r;
+}
+
+
+// Use for editable kernel parameters
+// #define KERNELPARAM(type,name,val)
+//   static type name ASMNAME( "KP_" ## type ## "_" ## name ) UNCOMPRESSEDSECTION = val
+
+#endif		// DEFS_H

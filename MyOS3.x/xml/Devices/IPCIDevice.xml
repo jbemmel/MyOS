@@ -1,0 +1,9 @@
+<context name="Drivers/PCI">
+<device uuid="1f3184c3-e99a-44c4-afed-922e6b1ff94b" name="IPCIDevice" url="http://www.myos.org/Interfaces" version="1">
+	<native file="Drivers/PCI/IPCIDevice.inc"/>
+   <!-- Returns integer: VendorId | DeviceId -->
+	<method name="getID" kind="get" stream="true"/>
+   <method name="getCapabilities" kind="get" stream="true"/>
+   <method name="hasDriver" kind="get" stream="true"/>
+</device>
+</context>

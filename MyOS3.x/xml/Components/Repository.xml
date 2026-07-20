@@ -1,0 +1,12 @@
+<context name="Context">
+<component name="Repository" uuid="c6a70b00-5f59-11d6-9e80-0010a708e02d">
+<version vendor="MyOS" major="1" minor="1"/>
+<requires>
+ <interfaceref name="IVirtualMemory" uuid="2a147d6f-cab0-43b8-8b9f-4687312c101d"/>
+ <new blockorder="0"/>
+</requires>
+<provides>
+ <interfaceref name="IContext" uuid="bdf79a36-5871-11d6-858d-0010a708e02e" version="1.1"/>
+</provides>
+</component>
+</context>

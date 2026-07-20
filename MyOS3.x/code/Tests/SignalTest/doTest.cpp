@@ -1,0 +1,108 @@
+/**
+ * This file (same name) is included in every Tests/ subdirectory
+ * By selecting proper directories in ant.include, this will cause
+ * one of the tests to be selected at all times
+ */
+#include "IContext.h"
+#include "debug.h"
+#include "../TestComponent.h"
+
+#include "TimerFacility/TimeUtil.h"
+#include "IThread.h"
+#include "MP/Process.h"    // XX should be IProcess
+
+namespace MyOS { namespace Tests {
+
+using namespace Timer;
+using namespace MultiThreading;
+
+/**
+ * A test for signals
+ */
+bool doTest( IContext& context, NVPAIR params[] )
+{
+   PRINTK( "\nStarting signal test..." );
+
+   // This will actually not work: We are on IDLE here, and IDLE
+   /* cannot sleep...
+   u32 start = TimeUtil::now( us );
+   IThread::do_usSleep( 5 * 1000 * 1000 );   // 5 seconds
+   u32 end = TimeUtil::now( us );
+   PRINTK( "\nIDLE Sleep from %d to %d took %d us", start, end, end-start );
+   */
+
+   // Let's try creating a new thread to sleep then...
+   static class Sleeper : public IRunnable {
+      virtual int run( NVPAIR params[] ) /* USERSECTION */ {
+          /*DPRINTK( "\np=%d", p );
+          DPRINTK( "\npi=%d", pi );
+          DPRINTK( "\ns=%d", s );
+          DPRINTK( "\nsi=%d", si ); si = 2;
+          DPRINTK( "\nc=%d", c );
+          DPRINTK( "\nci=%d", ci );*/
+
+          DPRINTK( "\nSleeper executing...id=%s CS=%x",
+                 params[0].asString(), Processor::CS() );
+
+         // for (int t = 125; t < 5 * 1000 * 1000; t<<=1) {
+         int id = params[0].asUnsigned();
+         for (int t = id==0? 10000 : 15000; t < 10 * 1000 * 1000; t<<=1) {
+            for (int n=0; n<1; ++n) {
+                u32 start = TimeUtil::now( us );
+                // DPRINTP( "\n[%d] Start sleep..", start );
+                IThread::do_usSleep( t );   // 5 seconds
+                u32 end = TimeUtil::now( us );
+                PRINTK( "\n[%d] Side sleep(%d us) starting at %d took %d us",
+                        end, t, start, end-start );
+            }
+         }
+
+         /*int t=0;
+         while (++t<10) {
+             IThread::do_usSleep( 1 * 1000 * 1000 );   // 1 seconds
+             PRINTK( "\nOne second passed(?) now=%d (millis:%d)",
+             	TimeUtil::now( seconds ), TimeUtil::now( ms ) );
+         }*/
+         DPRINTK( "\nSleeper by throw..." );
+         // throw 1; currently fails (crashes in phase1)
+         // throw SecurityException();
+         // return 0;
+
+         // IThread::do_exit( 100 );
+      }
+
+      virtual void handleSignal( u32 code, void* data ) throw() {
+          DPRINTK( "\nSleeper: got a signal code=%x data=%x", code, data );
+      }
+
+   } sleeper;
+
+   NVPAIR subparams[2] = { NVPAIR("id", "0"), NVPAIR() };
+
+   // Two threads: works fine. 2 separate processes --> enormous differences? in optimized mode it works again
+   // Perhaps writing to the screen + the lock involved blocks a thread? no, removing the lock disturbs the screen, but
+   // still bad timing. Perhaps the writing itself?
+   IThread& t = TestComponent::getInstance().getMT().createThread( sleeper, subparams, 1/*, MM::E_DPL3*/ );
+   // Thread& t2 = TestComponent::getInstance().getMT().createThread( sleeper, 0, 0/*, MM::E_DPL3*/ );
+
+   // From within the same process, sleep some seconds and then send a signal
+   // IThread::do_usSleep( 3000000 ); does not work: IDLE cannot sleep at this point
+   u32 start = TimeUtil::now( seconds );
+   do {
+       ASMVOLATILE( "hlt" );
+   } while ( (TimeUtil::now( seconds ) - start)<3 );
+
+   t.signal( 0xdeaff00d, &Thread::currentThread() );
+   t.kill();
+
+   // 2nd part to test: create a new process
+   //subparams[0].setStringValue( "1" );
+   //Process &p = TestComponent::getInstance().getMP().createProcess( sleeper, subparams, 1 );
+
+   // dont let sleeper get destroyed! -> now static
+   // while (1);
+
+   return true;
+}
+
+}}

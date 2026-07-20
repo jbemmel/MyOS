@@ -1,0 +1,36 @@
+# Imported Subversion metadata
+.svn/
+
+# Linux-native MyOS3.x build outputs
+/MyOS3.x/build/linux/
+/MyOS3.x/build/linux-release/
+/MyOS3.x/build/doc/
+
+# Legacy generated build outputs (keep build/gen_src configuration inputs)
+/MyOS3.x/build/debug/
+/MyOS3.x/build/optimize/
+
+# Generated documentation
+/MyOS3.x/doc/html/
+
+# Python helper caches
+__pycache__/
+*.py[cod]
+
+# Generated Java bytecode
+*.class
+
+# Visual Studio user-local files
+*.suo
+*.user
+*.ncb
+*.opensdf
+*.sdf
+
+# Editor and OS clutter
+*~
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+.~lock.*#

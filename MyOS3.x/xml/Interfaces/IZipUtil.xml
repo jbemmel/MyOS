@@ -1,0 +1,13 @@
+<context name="Zip">
+<interface uuid="afedc4f2-5f5a-11d6-8272-0010a708e02d" name="IZipUtil" url="http://www.myos.org/Interfaces" version="1">
+
+	<!-- Make this streaming ?? -->
+	<method name="unzip" kind="get" remote="false">
+		<params>
+		 <param name="zipped" type="const buffer&amp;"/>
+		 <param name="result" type="buffer&amp;"/>
+		</params>
+		<body type="*.zip"/>
+	</method>
+</interface>
+</context>	

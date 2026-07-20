@@ -1,0 +1,19 @@
+/**
+ * Thoughts about physical page frame allocation
+ */
+ 
+I can see 2 general approaches to this problem:
+1) Use a bitmap with 1 bit per physical frame
+2) Use a linked list or stack, with one (20-bit or 32-bit) entry per frame 
+
+Challenge is to make operations on the frame allocator atomic without
+using synchronization or locks
+
+See http://www.iglu.org.il/lxr/source/include/linux/mm.h:
+Linux uses the second approach, and includes fields for paging to disk.
+The structure per frame is quite large (there is a 'TODO' to make 32 bytes),
+and they take care to put commonly used fields together in cache lines.
+(IMO it is really ugly, most fields go unused depending on how pages are used)
+
+Actually, Linux uses a variant on (2) where frames are grouped according to the 'buddy'
+distribution (powers of 2, 2^0..2^10), and put in a separate list per group

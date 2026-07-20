@@ -1,0 +1,6 @@
+<context name="Devices/IDE">
+<device type="block" blocksize="4096" uuid="95089540-5aad-462b-8596-d75a0c244ce8" name="IHarddisk" url="http://www.myos.org/Interfaces" version="1">
+ <!--native file="Devices/IDE/IHarddisk.inc"/-->
+ <method name="getVolumeLabel" kind="get" stream="true"/>
+</device>
+</context>

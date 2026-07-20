@@ -1,0 +1,97 @@
+OUTPUT_FORMAT(elf32-i386)
+ENTRY(doDecompress)
+
+/* Modern i386 GCC emits the generic spelling while MyOS's bundled unwinder
+   implements the SJLJ spelling. */
+PROVIDE(_Unwind_Resume = _Unwind_SjLj_Resume);
+PROVIDE(__gxx_personality_v0 = __gxx_personality_sj0);
+
+SECTIONS {
+  __KERNEL_BASE_ = 0xFF800000;
+
+  .text.uz (__KERNEL_BASE_ + 0x200) : {
+    *DoDecompress.o(START)
+    *DoDecompress.o(.text .text.*)
+    *ZipContext.o(.text .text.* .data* .rodata*)
+    *(.rodata.UNCOMPRESSED)
+  }
+
+  _START_OF_COMPRESSED_BINARY_ = .;
+  __START_OF_COMPRESSED_BINARY_ = .;
+
+  .text.in ALIGN(0x1000) : {
+    _COMPRESSED_START_LINEAR_ = .;
+    __COMPRESSED_START_LINEAR_ = .;
+    *MyOSMain.o(.text.init)
+    *(.text.init*)
+    __CTOR_LIST__ = .;
+    KEEP(*(SORT(.ctors)))
+    KEEP(*(SORT(.init_array.*)))
+    KEEP(*(.init_array))
+    LONG(0)
+    __CTOR_END__ = .;
+  }
+
+  _START_OF_CODE_ = ALIGN(0x1000);
+  __START_OF_CODE_ = _START_OF_CODE_;
+  .text.u _START_OF_CODE_ : { *(.text.user*) }
+
+  _START_OF_KERNEL_ = ALIGN(0x1000);
+  __START_OF_KERNEL_ = _START_OF_KERNEL_;
+  .text.k _START_OF_KERNEL_ : {
+    SIGNAL_SAFE_START = .;
+    *(.text.signal_safe)
+    _SIGNAL_SAFE_END = .;
+    *(.text*)
+    *(.gnu.linkonce.t.*)
+    *(VM86)
+    . = ALIGN(0x1000);
+  }
+  __CODE_PAGES_ = (ALIGN(0x1000) - _COMPRESSED_START_LINEAR_) / 0x1000;
+  _CODE_PAGES_ = __CODE_PAGES_;
+
+  _START_OF_DATA_ = 0xffa00000;
+  __START_OF_DATA_ = _START_OF_DATA_;
+  .data _START_OF_DATA_ : {
+    *(.data*)
+    *(.rodata*)
+    *(.gnu.linkonce.d.*)
+    *(.gcc_except_table*)
+    *(.eh_frame*)
+    __EXPORT_TABLE_ = .;
+    KEEP(*(.myos_exports))
+    . = ALIGN(0x1000);
+  }
+  __DATA_PAGES_ = (ALIGN(0x1000) - _START_OF_DATA_) / 0x1000;
+  __SIZE_OF_COMPRESSED_BINARY_ = (__CODE_PAGES_ + __DATA_PAGES_) * 0x1000;
+  _DATA_PAGES_ = __DATA_PAGES_;
+  _SIZE_OF_COMPRESSED_BINARY_ = __SIZE_OF_COMPRESSED_BINARY_;
+
+  _BSS_START_ = ALIGN(0x1000);
+  __BSS_START_ = _BSS_START_;
+  .bss _BSS_START_ : {
+    *(.table)
+    *(.bss*)
+    *(COMMON)
+    *(.gnu.linkonce.b*)
+    _BSS_END_ = .;
+    __BSS_END_ = .;
+    _BSS_SIZE_ = . - _BSS_START_;
+    __BSS_SIZE_ = _BSS_SIZE_;
+  }
+  __BSS_PAGES_ = (ALIGN(0x1000) - _BSS_START_) / 0x1000;
+  _BSS_PAGES_ = __BSS_PAGES_;
+
+  _STACK_START_ = ALIGN(0x1000);
+  .stack _STACK_START_ : {
+    *DoDecompress.o(.stack)
+    _FREE_KERNEL_SPACE_START_ = ALIGN(0x1000);
+    __FREE_KERNEL_SPACE_START_ = _FREE_KERNEL_SPACE_START_;
+  }
+  __STACK_PAGES_ = (ALIGN(0x1000) - _STACK_START_) / 0x1000;
+  __KERNEL_PAGES_ = __CODE_PAGES_ + __DATA_PAGES_ + __BSS_PAGES_ + __STACK_PAGES_;
+  __START_OF_MODULE_ = 0xFFB00000;
+  _START_OF_MODULE_ = __START_OF_MODULE_;
+
+  /DISCARD/ : { *(.note*) *(.comment) *(.note.GNU-stack) }
+}

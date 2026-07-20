@@ -1,0 +1,14 @@
+<config>
+<IInterface.XML/>
+<IDevice.XML/>
+<IComponent.XML>
+ <!--IComponent.queryInterface/-->
+</IComponent.XML>
+<IContainer.XML>
+ <!--IContainer.queryComponent/-->
+</IContainer.XML>
+<IDisplay/>
+<!--IDE/-->
+<NE2000/>
+<PCNET32/>
+</config>

@@ -1,0 +1,9 @@
+stateDiagram-v2
+  [*] --> Ready
+  Running --> Sleeping : sleep()
+  Running --> Suspended : suspend()
+  Sleeping --> Ready : timer || wakeup()
+  Suspended --> Ready : wakeup()
+  Ready --> Running : select
+  Running --> [*] : end()
+  Running --> Ready : quantum_timer

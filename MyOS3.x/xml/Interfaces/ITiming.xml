@@ -1,0 +1,33 @@
+<context name="Timer">
+<interface uuid="cd5a76a0-bf79-4750-8356-9f8a0627465a" name="ITiming" url="http://www.myos.org/Interfaces" version="1">
+<native file="Timer/ITiming.inc"/>
+<!-- Want 'u32' return type, not myos_result -->
+<!--method name="now" kind="get">
+<params><param name="unit" type="ETimeUnit"/></params>
+</method-->
+<method name="initTimer" kind="put" remote="false">
+<params>
+<param name="timer" type="timer_t&amp;"/>
+<param name="target" type="ITimerTarget&amp;"/>
+</params>
+</method>
+<method name="startTimer" kind="put" remote="false">
+<params>
+<param name="timer" type="timer_t&amp;"/>
+<param name="afterUs" type="u32"/>
+<!--param name="userdata" type="void*"/-->
+</params>
+</method>
+<method name="cancelTimer" kind="put" remote="false">
+<params>
+<param name="timer" type="timer_t&amp;"/>
+</params>
+</method>
+<method name="triggerTimer" kind="put" remote="false">
+<params><param name="timer" type="timer_t&amp;"/></params>
+</method>
+<method name="freeTimer" kind="put" remote="false">
+<params><param name="timer" type="timer_t&amp;"/></params>
+</method>
+</interface>
+</context>

@@ -1,0 +1,11 @@
+<context name="BIOS">
+<interface uuid="2ebf3820-423e-47cc-b13c-07eff2a2a6a5" name="IBIOS" url="http://www.myos.org/Interfaces" version="1">
+<native file="BIOS/IBIOS.inc"/>
+<method name="vm86int" kind="put" remote="false">
+ <params>
+  <param name="i" type="u8"/>
+  <param name="regs" type="VM86REGS&amp;"/>
+ </params>
+</method>
+</interface>
+</context>

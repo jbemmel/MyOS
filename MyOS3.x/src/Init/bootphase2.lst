@@ -1,0 +1,69 @@
+     1                                  ;
+     2                                  ; This code is executed after the kernel has been read in from floppy, but
+     3                                  ; before PM is set up
+     4                                  ; 
+     5                                  ; The intention is to be able to make calls to real mode BIOS functions
+     6                                  ; such as 15h, 0xE820 for determining the amount of available memory
+     7                                  ;_____________________________________________________________________________
+     8                                  
+     9                                  
+    10                                  ; Offset where this image will be loaded
+    11                                  %define BOOT 0x100000
+    12                                  
+    13                                  bootphase2:
+    14 00000000 6660                    	pushad				; keep 32-bit registers as bootsec.asm expects them
+    15 00000002 06                      	push	ES
+    16 00000003 1E                      	push	DS			; Save these, and keep stack 32-bit aligned
+    17                                  
+    18                                  	; see http://www.uruk.org/orig-grub/mem64mb.html
+    19 00000004 6631DB                  	xor		EBX, EBX	  	; first call
+    20 00000007 8EC3                    	mov		ES, BX			; Clear ES
+    21 00000009 66BF007C0000            	mov		EDI, 0x7C00		; ES:DI buffer for result; overwrites boot
+    22 0000000F 66B914000000            	mov		ECX, 20		  	; size, minimal 20 bytes
+    23                                  
+    24                                  next:
+    25 00000015 66B820E80000            	mov		EAX, 0xE820	; Need to set every time, BIOS returns EAX='PAMS'
+    26                                  
+    27                                  	; Should be 'SMAP', but comparing to bochs/linux code this is reverse...	
+    28 0000001B 66BA50414D53            	mov		EDX, 'PAMS'	; some BIOSes destroy this upon return...
+    29 00000021 CD15                    	int		15h
+    30 00000023 7207                    	jc		.done		; Carry means either not supported, or last entry
+    31 00000025 01CF                    	add		DI, CX		; Move buffer ptr (by size reported by BIOS)
+    32 00000027 6685DB                  	test	EBX, EBX	; Upon last entry, EBX is 0
+    33 0000002A 75E9                    	jnz		next		; Could also check EAX=='PAMS'
+    34                                  	
+    35                                   						  ; Could store the count somewhere, or parse until 0
+    36                                  .done:	
+    37 0000002C 2666C705FFFFFFFF        	mov	dword [ES:DI], -1 	; Make sure parser can detect end of map
+    38                                  	
+    39                                  ; Detect available ATA devices using the BIOS - easier&safer than poking at registers
+    40 00000034 B441                    	mov		AH, 41h
+    41 00000036 BBAA55                  	mov		BX, 0x55aa
+    42 00000039 B280                    	mov		DL, 80h			; first HDD
+    43 0000003B CD13                    	int		13h				; Check presence of extended 13h BIOS functions
+    44 0000003D C70600780000            	mov word [0x7800], 0	; Set size to 0, in case this is not supported
+    45 00000043 7226                    	jc		no_13h_ext
+    46                                  
+    47                                  ; Put the HDD tables at 0x7800, 400h bytes before start of E820 map should be enough
+    48 00000045 66BE00780000            	mov		ESI, 0x7800		; This function uses SI rather than DI
+    49 0000004B 31DB                    	xor		BX, BX
+    50 0000004D 8EDB                    	mov		DS, BX
+    51 0000004F B280                    	mov		DL, 80h			; HDD drive 0
+    52                                  next_disc:
+    53 00000051 3EC7044200              	mov word [DS:SI], 42h	; Size required for v3.0
+    54 00000056 B448                    	mov		AH, 48h			; Get drive parameters	
+    55 00000058 CD13                    	int		13h
+    56 0000005A 720F                    	jc		no_13h_ext
+    57 0000005C 3E0334                  	add si, [DS:SI]			; read size returned, advance buffer ptr
+    58 0000005F FEC2                    	inc		DL
+    59 00000061 80FA88                  	cmp		DL, 88h			; Detect up to 8 devices
+    60 00000064 72EB                    	jb		next_disc
+    61 00000066 3EC7040000              	mov word [DS:SI], 0h	; Mark end of records
+    62                                  
+    63                                  no_13h_ext:	
+    64 0000006B 1F                      	pop	DS
+    65 0000006C 07                      	pop	ES
+    66 0000006D 6661                    	popad					; restore
+    67 0000006F CB                      	retf					; back to bootsec.asm
+    68                                  	
+    69 00000070 <res 00000190>          	resb 0x200+$$-$   	; Make the binary image exactly 0x200 bytes long

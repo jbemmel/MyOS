@@ -1,0 +1,21 @@
+Microsoft Visual Studio Solution File, Format Version 8.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "xmlparser", "xmlparser.vcproj", "{C0966E5F-D5BB-4BE5-BC0D-25BFFC4B0A9C}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfiguration) = preSolution
+		Debug = Debug
+		Release = Release
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{C0966E5F-D5BB-4BE5-BC0D-25BFFC4B0A9C}.Debug.ActiveCfg = Debug|Win32
+		{C0966E5F-D5BB-4BE5-BC0D-25BFFC4B0A9C}.Debug.Build.0 = Debug|Win32
+		{C0966E5F-D5BB-4BE5-BC0D-25BFFC4B0A9C}.Release.ActiveCfg = Release|Win32
+		{C0966E5F-D5BB-4BE5-BC0D-25BFFC4B0A9C}.Release.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

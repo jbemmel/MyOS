@@ -1,0 +1,14 @@
+<!-- TODO: Perhaps this is more a service than an interface? -->
+<context name="FS/FAT">
+<interface uuid="0c6ad02d-8042-4a4d-ba4f-d336289ccc3b" name="IFATFS" url="http://www.myos.org/Interfaces" version="1">
+	<native file="FS/FAT/IFATFS.inc"/>
+<!--
+	<method name="readFile" kind="get" stream="true" remote="false">
+     <params>
+      <param name="filepath" type="const myos_name_t&amp;"/>
+     </params>	 
+	</method>
+	<method name="enumerateFiles" kind="get" stream="true"/>
+-->	
+</interface>
+</context>

@@ -1,0 +1,52 @@
+/***************************************************************************
+                          LinkQueue.cpp  -  description
+                             -------------------
+    begin                : Tue Feb 5 2002
+    copyright            : (C) 2002 by Jeroen van Bemmel
+    email                : jeroen@thebem.localdomain
+ ***************************************************************************/
+#include "AtomicQueue.h"
+
+namespace MyOS {
+
+// AtomicQueue::Node AtomicQueue::dummy;
+
+void enq( AtomicQueue *_this, void *item )
+{
+	AtomicQueue::Node* tail;
+    ASMVOLATILE(
+        "0:"
+        "movl       0x4(%3), %0 \t\n"       /* p = tail */
+        "movl       $0, %%eax   \t\n"       /* get NULL */
+        "cmpxchg    %1, 0x0(%0) \t\n"       /* replace_if(==0) (p->next,q) */
+        "jnz        0b          \t\n"       /* retry if failed, tail must have changed */
+        "movl       %0, %%eax   \t\n"       /* get p */
+        "cmpxchg    %1, 0x4(%3) \t\n"       /* replace_if(==p) (tail,q) */
+        : "=r"(tail), "=r"(item)
+        : "1"(item), "r"(_this)
+        : "eax"
+    );
+}
+
+void* deq( AtomicQueue *_this )
+{
+    void *p, *pnext;
+    ASMVOLATILE(
+        "0:"                                
+        "movl       0x0(%0), %2     \t\n"   /* get p->next */
+        "test       %2, %2          \t\n"   /* check p->next for NULL */
+        "je 1f                      \t\n"   /* exit if 0 */
+        "cmpxchg    %2, 0x0(%3)     \t\n"   /* replace_if(==p) (head, p->next ) */
+        "jnz        0b              \t\n"   /* retry if failed, eax contains head */
+        "mov        %2, %0          \t\n"   /* get q into p*/
+        "jmp 2f                     \t\n"   /* finished */
+        "1:"
+        "movl       $0, %0          \t\n"   /* return false */
+        "2:"
+        : "=a"(p)
+        : "0"( _this->head ), "r"(pnext), "r"(_this)
+    );
+    return p;
+}
+
+}  // namespace

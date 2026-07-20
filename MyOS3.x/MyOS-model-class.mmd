@@ -1,0 +1,53 @@
+classDiagram
+  direction TB
+  class I_Thread["Thread"] {
+    <<interface>>
+    +start() void
+    +create() void
+    +onTimer() void
+    +select() void
+  }
+  class AddressSpace["AddressSpace"] {
+    <<interface>>
+  }
+  class Process["Process"] {
+    <<interface>>
+  }
+  class CPUContext["CPUContext"] {
+    <<interface>>
+    +setTimer() void
+    +getCPUId() void
+    +schedulePair(t: Thread) void
+  }
+  class TimerHeap["TimerHeap"] {
+    <<interface>>
+  }
+  class TimerSource["TimerSource"] {
+    <<interface>>
+  }
+  class ReadyQueue["ReadyQueue"] {
+  }
+  class C_Thread["Thread"] {
+    -cpu_affinity
+    -priority
+  }
+  class Timer["Timer"] {
+  }
+  class LocalAPIC["LocalAPIC"] {
+    +sendIPI() void
+  }
+  CPUContext "1" *-- "1" TimerHeap
+  Process "1" *-- "1" AddressSpace
+  CPUContext "1" --> "1" Process : current
+  ReadyQueue "0..1" --> "0..*" C_Thread
+  C_Thread "1" --> "0..1" C_Thread : pair
+  CPUContext "1" --> "0..1" CPUContext : pair
+  Process "1" -- "1..*" C_Thread
+  TimerHeap "0..1" --> "0..*" Timer
+  CPUContext "1" *-- "1" ReadyQueue
+  C_Thread "1" o-- "1" Timer
+  CPUContext "1" *-- "1" LocalAPIC
+  TimerHeap "1" --> "1" TimerSource
+  LocalAPIC ..|> TimerSource : realize
+  note for ReadyQueue "Prescheduled on specific CPU;  alternative is a global queue from which  all CPUs take the next t..."
+  note for C_Thread "Represent logical pairs  (Hyper-Threading / dual-core)  and schedule pairs of threads  (of the sa..."

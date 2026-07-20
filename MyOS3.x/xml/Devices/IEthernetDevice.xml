@@ -1,0 +1,6 @@
+<context name="Devices/Network">
+<device type="packet" size="1500" uuid="5f119878-41d6-4374-bdb5-543a2c90ef21" name="IEthernetDevice" url="http://www.myos.org/Interfaces" version="1">
+ <native file="Devices/Network/IEthernetDevice.inc"/>
+ <method name="getAddress" kind="get" stream="true"/>
+</device>
+</context>

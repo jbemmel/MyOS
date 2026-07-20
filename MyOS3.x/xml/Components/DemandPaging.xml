@@ -1,0 +1,12 @@
+<context name="MM">
+<component name="DemandPaging" uuid="26954748-c804-4133-aa78-151c80f636da">
+<version vendor="MyOS" major="1" minor="1"/>
+<requires>
+<!-- To install page fault handler... -->
+<interfaceref name="IInterruptHandling" context="InterruptHandling" uuid="26468cf9-fa5b-4de7-9914-eec11e667215"/>
+</requires>
+<provides>
+<interfaceref name="IDemandPaging" uuid="c5f5093d-07d2-4b5e-8b01-e77406bfa43e" version="1.1"/> 
+</provides>
+</component>
+</context>

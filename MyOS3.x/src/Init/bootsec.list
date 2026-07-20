@@ -1,0 +1,470 @@
+     1                                  ; bootf.asm  FAT12 floppy bootstrap for protected mode image
+     2                                  ; Version 2.0, May 1, 1999
+     3                                  ; Sample code
+     4                                  ; by John S. Fine  johnfine@erols.com
+     5                                  ; edited by Jeroen van Bemmel
+     6                                  ; I do not place any restrictions on your use of this source code
+     7                                  ; I do not provide any warranty of the correctness of this source code
+     8                                  ;_____________________________________________________________________________
+     9                                  ;
+    10                                  ; Documentation:
+    11                                  ;
+    12                                  ;   1)  Most of the documentation is in comments at the END of this file.
+    13                                  ;   2)  Some is in the read.me file that came with this file.
+    14                                  ;   3)  In the comments within the source code are several uses of {}, each
+    15                                  ;       of these indicates a section of documentation at the end of this file
+    16                                  ;       which applies to that part of the source code.
+    17                                  ;   4)  The major way I reduced code size was to rely on left-over values in
+    18                                  ;       registers and/or to initialize registers at points where doing so was
+    19                                  ;       cheap.  To make that understandable, there are several lines beginning
+    20                                  ;       with either ";>" or ";>>".  These lines describe the register contents
+    21                                  ;       at that point in the code.  ";>" indicates that the value is required
+    22                                  ;       by the next section of code.  ";>>" indicates that the value passes
+    23                                  ;       through the next section unmodified and is needed later.
+    24                                  ;    5) I made this code by modifying my bootp example.  If something doesn't
+    25                                  ;       make sense here, maybe comparison to the other version will help.
+    26                                  ;_____________________________________________________________________________
+    27                                  ;
+    28                                  ; Limitations:
+    29                                  ;
+    30                                  ;    For simplicity, I made several assumptions about the environment.  Some
+    31                                  ; of those may need to be expanded in a future version.  Except for the first,
+    32                                  ; they are all things that could be checked by a "SYS" program that installs
+    33                                  ; this bootstrap.  In general it makes more sense (where possible) for a SYS
+    34                                  ; program to check compatibility issues than for a bootstrap to check them
+    35                                  ; itself.
+    36                                  ;
+    37                                  ;    If these limits are violated, this code simply bombs.  It does not check
+    38                                  ; the limits nor display error messages.
+    39                                  ;
+    40                                  ; 1) Runs only on a 386+
+    41                                  ; 2) The FAT structure must be the first thing on the drive (no partitions).
+    42                                  ;    It just uses "reserved" sectors before the FAT, not "hidden" etc.
+    43                                  ; 3) The sector size must be 512 bytes
+    44                                  ; 4) There are less than 256 sectors per fat (safe, since FAT12 has less than
+    45                                  ;    4096*1.5 bytes per FAT).
+    46                                  ; 5) LBN of root directory less than 65536 (safe in unpartitioned FAT12)
+    47                                  ;_____________________________________________________________________________
+    48                                  
+    49                                  
+    50                                  	struc	BB		;FAT Boot block
+    51 00000000 <res 0000000D>          		resb	0xD	;Things we ignore
+    52 0000000D <res 00000001>          BB_clu		resb	1	;Sectors per cluster
+    53 0000000E <res 00000002>          BB_res		resw	1	;Reserved sectors
+    54 00000010 <res 00000001>          BB_fats		resb	1	;Number of FATs
+    55 00000011 <res 00000002>          BB_root		resw	1	;Root directory entries
+    56 00000013 <res 00000003>          		resb	3	;Things we ignore
+    57 00000016 <res 00000002>          BB_fat		resw	1	;Sectors per fat
+    58 00000018 <res 00000002>          BB_sec		resw	1	;Sectors per track
+    59 0000001A <res 00000002>          BB_head		resw	1	;Heads
+    60                                  	endstruc
+    61                                  
+    62                                  %define FLAT_CODE 8
+    63                                  %define FLAT_DATA 16
+    64                                  
+    65                                  ; Offset where this image will be loaded
+    66                                  %define BOOT 0x7C00
+    67                                  
+    68                                  ;>   cs = 0
+    69                                  ;>>  dl = drive we were booted from
+    70                                  
+    71 00000000 EB3C                    boot:	jmp short start			;Standard start of boot sector
+    72 00000002 90                      	nop
+    73                                  	; resb	0x3B			      ;Skip over parameters (set by format)
+    74 00000002 <incbin>                	incbin "bootsector.bin", 3, 0x3b
+    75                                  
+    76                                  start:
+    77 0000003E FA                      	cli				       ;{0}
+    78 0000003F 31C0                    	xor   ax, ax
+    79 00000041 8ED8                    	mov   ds, ax           ; Make sure that the DS offset == 0 (some broken BIOS might do otherwise)
+    80 00000043 0F0116[E47D]            	lgdt	[gdt+BOOT]	   ; Load GDT
+    81                                  ;	mov	ecx, CR0		   ; Switch to protected mode
+    82                                  ;	inc	cx
+    83 00000048 66B901000000            	mov ecx, 1			   ; JvB: added, enables caching
+    84 0000004E 0F22C1                  	mov	CR0, ecx		   ;{5}
+    85                                  .5:
+    86 00000051 E464                       in	al, 0x64		   ;Enable A20 {4A}
+    87 00000053 A802                    	test	al, 2
+    88 00000055 75FA                    	jnz	.5
+    89 00000057 B0D1                    	mov	al, 0xD1
+    90 00000059 E664                    	out	0x64, al
+    91 0000005B E464                    .6:	in	al, 0x64
+    92 0000005D 83E002                  	and	ax, byte 2
+    93 00000060 75F9                    	jnz	.6
+    94 00000062 B0DF                    	mov	al, 0xDF
+    95 00000064 E660                    	out	0x60, al
+    96                                  
+    97                                  ;>   ah = 0
+    98                                  ;>   dl = drive we were booted from
+    99                                  
+   100 00000066 B010                    	mov	al, FLAT_DATA	; Selector for 4Gb data seg
+   101 00000068 8ED8                    	mov	ds, ax			; {2} Extend limit for ds
+   102 0000006A 8EC0                    	mov	es, ax			; Extend limit for es
+   103 0000006C 49                      	dec	cx			    ; Switch back to real mode
+   104 0000006D 0F22C1                  	mov	CR0, ecx		; {5}
+   105                                  
+   106 00000070 8816[007C]              	mov	[boot+BOOT], dl	; Save drive number we came from
+   107 00000074 BC0008                  	mov	sp, 0x800		; {1B}
+   108                                  
+   109 00000077 6631C0                  	xor	eax, eax	    ; Segment
+   110 0000007A 8ED8                    	mov	ds, ax
+   111 0000007C 8ED0                    	mov	ss, ax
+   112 0000007E 8EC4                    	mov	es, sp			; Read directory at 800:0 {1C}
+   113                                  
+   114                                  ;>   eax = 00000000
+   115                                  
+   116 00000080 A0[107C]                	mov	al, [boot+BOOT+BB_fats]	      ;Number of FATs
+   117 00000083 F626[167C]              	mul	byte [boot+BOOT+BB_fat]	      ;Times size of FAT
+   118 00000087 0306[0E7C]              	add	ax, [boot+BOOT+BB_res]	      ;  Plus Sectors before first FAT
+   119                                  					                        ;eax = LBN of Root directory
+   120 0000008B 660FB73E[117C]          	movzx	edi,word [boot+BOOT+BB_root]	;Root directory entries
+   121 00000091 57                      	push	di			                     ; used again later
+   122 00000092 4F                      	dec	di			                     ;Convert to number of sectors
+   123 00000093 C1EF04                  	shr	di, 4			                  ;  16 directory entries per sector
+   124 00000096 47                      	inc	di
+   125 00000097 E8DC00                  	call	read_sectors
+   126                                  
+   127                                  ;>  eax  = LBN of root directory
+   128                                  ;>  edi  = length of root directory in sectors
+   129                                  ;>  [sp] = length of root directory in entries
+   130                                  ;>  esi  = 00000000
+   131                                  
+   132 0000009A 66678D2C38              	lea	ebp, [eax+edi]		      ;ebp = LBN of cluster 2
+   133                                  
+   134 0000009F 5B                      	pop	bx			               ;Root directory entries
+   135 000000A0 31FF                    	xor	di, di			         ;Point at directory {1C}
+   136                                  .20:
+   137 000000A2 8D36[D87D]                 lea	si, [file_name+BOOT]		;Name of file we want
+   138 000000A6 6631C9                  	xor	ecx, ecx
+   139 000000A9 B10B                    	mov	cl, 11
+   140 000000AB 67F3A6                  	a32 rep cmpsb		; Found the file?
+   141 000000AE 741F                    	je	found			; Yes
+   142 000000B0 80C115                  	add	cl, 21			; Offset to next directory entry
+   143 000000B3 6601CF                  	add	edi, ecx		; Advance to next entry
+   144 000000B6 4B                      	dec	bx			    ; Loop through all entries
+   145 000000B7 75E9                    	jnz	.20
+   146                                  
+   147                                  	;Couldn't find file in directory
+   148                                  boot_error:
+   149                                  disk_error:
+   150 000000B9 B8070E                  	mov	ax, 0xE07		;{3}
+   151 000000BC CD10                    	int	10h
+   152 000000BE B800B8                  	mov   ax, 0xB800              ; load screen offset
+   153 000000C1 8EC0                    	mov   es, ax                  ;
+   154 000000C3 B8584F                  	mov   ax, 'X'| 0x4f00         ; put red crosses on the screen
+   155 000000C6 B9D007                  	mov   cx, 25*80
+   156 000000C9 31FF                    	xor   di,di
+   157 000000CB F3AB                    	rep stosw
+   158 000000CD EBFE                    	jmp short $
+   159                                  
+   160                                  ;>> ecx   = 00000000
+   161                                  ;> es     = 800
+   162                                  ;> es:edi = Directory entry of file
+   163                                  ;> ebp    = LBN of cluster 2
+   164                                  ;> eax    = 0000????
+   165                                  
+   166                                  found:	
+   167 000000CF 2667FF770F              	push	word [es:edi+0xF]	;Starting cluster of file
+   168 000000D4 8B3E[167C]              	mov	di, [boot+BOOT+BB_fat]	;Size of FAT (in sectors)
+   169 000000D8 A1[0E7C]                	mov	ax, [boot+BOOT+BB_res]	;LBN of FAT
+   170 000000DB E89800                  	call	read_sectors
+   171                                  
+   172 000000DE BB0040                  	mov	bx, 0x4000
+   173 000000E1 8EC3                    	mov	es, bx			        ; es = 0x4000
+   174 000000E3 66BF00000C00            	mov	edi, 0x100000-0x40000	; {1D}{4B} One megabyte minus ES base
+   175                                  .10:
+   176                                  
+   177                                  ;>>    ecx = 0000????
+   178                                  ;>    [sp] = Next cluster of file
+   179                                  ;>     esi = 0000????
+   180                                  ;>>    edx = 0000????
+   181                                  ;>  es:edi = Destination address
+   182                                  ;>     ebp = LBN of cluster 2
+   183                                  ;>      ds = 0
+   184                                  
+   185 000000E9 6631C0                  	xor	eax, eax
+   186 000000EC 5E                      	pop	si			      ;Next cluster of file
+   187 000000ED 89F3                    	mov	bx, si
+   188 000000EF 81FEF80F                	cmp	si, 0xFF8		;Valid cluster?
+   189 000000F3 7329                    	jae	eof			   	;No: assume end of file
+   190                                  					    ;Yes: (c-bit set)
+   191 000000F5 D1DB                    	rcr	bx, 1			;bx = 0x8000 + cluster/2
+   192 000000F7 8B18                    	mov	bx, [bx+si]		;Get word containing FAT entry
+   193 000000F9 7303                    	jnc	.11			    ;Entry is low 12 bits
+   194 000000FB C1EB04                  	shr	bx, 4			;Entry was high 12 bits
+   195 000000FE 80E70F                  .11:	and	bh, 0xF		;Mask to just 12 bits
+   196 00000101 53                      	push	bx			;Save cluster after next
+   197 00000102 57                      	push	di			;Save destination address {7}
+   198 00000103 A0[0D7C]                	mov	al, [boot+BOOT+BB_clu]	;Size of each cluster
+   199 00000106 89C7                    	mov	di, ax			         ;  (in sectors)
+   200 00000108 4E                      	dec	si
+   201 00000109 4E                      	dec	si
+   202 0000010A 66F7E6                  	mul	esi			   	  ; Times cluster number minus 2
+   203 0000010D 6601E8                  	add	eax, ebp		  ; Plus LBN of cluster 2
+   204 00000110 E86300                  	call	read_sectors  ; Read that cluster
+   205                                  
+   206                                  ;>     ecx = 0000????
+   207                                  ;>>    edx = 0000????
+   208                                  ;>      di = Clustersize in sectors
+   209                                  ;>     esi = 0
+   210                                  ;>>    ebp = LBN of cluster 2
+   211                                  ;>    [sp] = Bottom 16-bits of destination address {7}
+   212                                  ;>> [sp+2] = Following cluster
+   213                                  ;>      ds = 0
+   214                                  ;>      es = 4000
+   215                                  
+   216 00000113 89F9                    	mov	cx, di			; Cluster size in sectors
+   217 00000115 86E9                    	xchg	ch, cl		; Cluster size in words
+   218 00000117 5F                      	pop	di			    ; Restore destination address {7}
+   219 00000118 2667F3A5                	es a32 rep movsw
+   220 0000011C EBCB                    	jmp short .10		; Loop until end of file
+   221                                  
+   222                                  ;>     eax = 0
+   223                                  ;>     edx = 0000????
+   224                                  ;>      bx = 0FF?
+   225                                  
+   226                                  eof:
+   227 0000011E 9A1000FFFF              	call 0xFFFF:0x10	; JvB added: execute bootphase2
+   228                                  
+   229 00000123 BA009C                  	mov	dx, 0x9C00
+   230 00000126 8EC2                    	mov	es, dx			;es = 9C00
+   231 00000128 31FF                    	xor	di, di			;{1E} Address of page tables WRT es
+   232 0000012A B610                    	mov	dh, 4096/256	;edx = 4096
+   233 0000012C B90004                  .10:	mov	cx, 1024
+   234 0000012F B007                    	mov	al, 7
+   235 00000131 66AB                    .20:	stosd
+   236 00000133 6601D0                  	add	eax, edx
+   237 00000136 CD08                    	int	8			      ;{8}
+   238 00000138 E2F7                    	loop	.20
+   239 0000013A 66C1E802                	shr	eax, 2			;{4C} (first time only) 4Mb / 4 = 1Mb
+   240 0000013E F6DB                    	neg	bl			      ;Done just one page?
+   241 00000140 79EA                    	jns	.10			   ;Yes: do one more
+   242                                  
+   243 00000142 FA                      	cli				      ;{6}
+   244                                  
+   245 00000143 66B803C00900            	mov	eax, 0x9C003	;First page tbl pointer in page dir
+   246 00000149 66AB                    	stosd				      ;{1H}
+   247                                  
+   248 0000014B B8FA07                  	mov	ax, (1024-3)*2
+   249 0000014E 91                      	xchg	ax, cx
+   250 0000014F F3AB                    	rep stosw				; Not dwords: Would take too many bytes of instructions...
+   251 00000151 B803D0                  	mov	ax, 0xD003		;0FF800000 page tbl pointer
+   252                                  
+   253 00000154 66AB                    	stosd				      ;{1F}
+   254 00000156 B4E0                    	mov	ah, 0xE0		   ;Page directory self pointer
+   255 00000158 66AB                    	stosd				      ;{1G}
+   256 0000015A B000                    	mov	al, 0
+   257 0000015C 0F22D8                  	mov	CR3, eax		   ;Set up page directory
+   258                                  ;	mov	eax, CR0		   
+   259                                  ;	or	eax, 0x80010001	   ; Turn on paging and protected mode and WP
+   260                                  ;	and eax, ~0x60000000   ; Enable caching&WB by clearing bits 29,30
+   261 0000015F 66B801000180            	mov eax, 0x80010001
+   262 00000165 0F22C0                  	mov	CR0, eax
+   263 00000168 B110                    	mov	cl, FLAT_DATA  ;Setup ds and es
+   264 0000016A 51                      	push	cx			      ;{5}
+   265 0000016B 1F                      	pop	ds
+   266 0000016C 8EC1                    	mov	es, cx
+   267                                  ;	mov	fs, cx			; Added: Also set up fs and gs
+   268                                  ;	mov	gs, cx
+   269 0000016E 66EA000280FF0800        	jmp dword FLAT_CODE:0xFF800200		;Go
+   270                                  
+   271                                  read_sectors:
+   272                                  ; Input:
+   273                                  ;	EAX = LBN
+   274                                  ;	DI  = sector count
+   275                                  ;	ES = segment
+   276                                  ; Output:
+   277                                  ;	EBX high half cleared
+   278                                  ;	DL = drive #
+   279                                  ;	EDX high half cleared
+   280                                  ;	ESI = 0
+   281                                  ; Clobbered:
+   282                                  ;	BX, CX, DH
+   283                                  
+   284 00000176 6650                    	push	eax
+   285 00000178 57                      	push	di
+   286 00000179 06                      	push	es
+   287                                  
+   288 0000017A 6650                    .10:	push	eax		;LBN
+   289                                  
+   290 0000017C 6699                    	cdq			;edx = 0
+   291 0000017E 660FB61E[187C]          	movzx	ebx, byte [boot+BOOT+BB_sec]
+   292 00000184 66F7F3                  	div	ebx		   ;EAX=track ;EDX=sector-1
+   293 00000187 89D1                    	mov	cx, dx		;CL=sector-1 ;CH=0
+   294 00000189 28D3                    	sub	bl, dl		;BX = max transfer before end of track
+   295 0000018B 39DF                    	cmp	di, bx		;Do we want more than that?
+   296 0000018D 7702                    	ja	.20		    ;Yes, do just this much now
+   297 0000018F 89FB                    	mov	bx, di		;No, do it all now
+   298 00000191 6689DE                  .20:	mov	esi, ebx	;Save count for this transfer.
+   299                                  
+   300 00000194 41                      	inc	cx		      ;CL=Sector number
+   301 00000195 31D2                    	xor	dx, dx
+   302 00000197 8A1E[1A7C]              	mov	bl, [boot+BOOT+BB_head]
+   303 0000019B 66F7F3                  	div	ebx		         ;EAX=cylinder ;EDX=head
+   304                                  
+   305 0000019E 88D6                    	mov	dh, dl		    ;Head
+   306 000001A0 8A16[007C]              	mov	dl, [boot+BOOT]	;Drive
+   307 000001A4 86E8                    	xchg	ch, al		;CH=Low 8 bits of cylinder number; AL=0
+   308 000001A6 C1E802                  	shr	ax, 2		    ;AL[6:7]=High two bits of cylinder
+   309 000001A9 08C1                    	or	cl, al		    ;CX = Cylinder and sector
+   310                                  
+   311 000001AB 89F0                    	mov	ax, si		    ;Sector count
+   312 000001AD B402                    	mov	ah, 2		    ;Read
+   313 000001AF 31DB                    	xor	bx, bx
+   314 000001B1 50                      	push	ax
+   315 000001B2 CD13                    	int	13h
+   316 000001B4 58                      	pop	ax
+   317 000001B5 7306                    	jnc	.30
+   318                                  
+   319 000001B7 CD13                    	int	13h		;If at second you don't succeed, give up
+   320 000001B9 0F82FCFE                	jc near	disk_error
+   321                                  
+   322 000001BD 6658                    .30:	pop	eax
+   323 000001BF 6601F0                  	add	eax, esi	;Advance LBN
+   324                                  
+   325 000001C2 56                      	push	si
+   326 000001C3 C1E605                  	shl	si, 5
+   327 000001C6 8CC3                    	mov	bx, es
+   328 000001C8 01F3                    	add	bx, si		;Advance segment
+   329 000001CA 8EC3                    	mov	es, bx
+   330 000001CC 5E                      	pop	si
+   331                                  
+   332 000001CD 29F7                    	sub	di, si
+   333 000001CF 77A9                    	ja	.10
+   334                                  
+   335 000001D1 07                      	pop	es
+   336 000001D2 5F                      	pop	di
+   337 000001D3 6658                    	pop	eax
+   338 000001D5 31F6                    	xor	si, si
+   339 000001D7 C3                      	ret
+   340                                  
+   341                                  ; SEGMENT .text USE32
+   342                                  
+   343 000001D8 4B45524E454C202042-     file_name db 'KERNEL  BIN'
+   344 000001E1 494E               
+   345                                  
+   346                                  ;  subField             location
+   347                                  ;  ------------------   --------------
+   348                                  ;  Limit[0..15]          0..15
+   349                                  ;  Limit[16..19]         48..51
+   350                                  ;  Minor control bits    52..55
+   351                                  ;  Major control bits    40..47
+   352                                  ;  Base[0..23]           16..39
+   353                                  ;  Base[24..31]          56..63
+   354                                  
+   355 000001E3 90                      align 4
+   356                                  gdt:
+   357 000001E4 1700                    	dw 0x17           ; limit
+   358 000001E6 [E47D0000]              	dd BOOT + gdt     ; offset
+   359 000001EA 0000                    	dw 0              ; dummy
+   360                                  
+   361                                  	; hand-crafted segment descriptor: OFFSET 0, LIMIT 0xFFBFF, type code
+   362 000001EC FFFB0000009ACF00        	flat_code_desc db 0xff,0xfb,0x00,0x00,0x00,0x9a,0xcf,0x00
+   363                                  
+   364                                  	; hand-crafted segment descriptor: OFFSET 0, LIMIT 0xFFFFF, type data
+   365 000001F4 FFFF00000092CF00        	flat_data_desc db 0xff,0xff,0x00,0x00,0x00,0x92,0xcf,0x00
+   366                                  
+   367 000001FC <res 00000002>          	resb 0x1FE+$$-$   ; 2 bytes left :)
+   368 000001FE 55AA                    	db	0x55, 0xAA		;Standard end of boot sector
+   369                                  ;_____________________________________________________________________________
+   370                                  ;
+   371                                  ;  Build/Install instructions:
+   372                                  ;
+   373                                  ;  *)  NASM bootf.asm
+   374                                  ;
+   375                                  ;   I left out most of the error handling (what do you expect for 1B1 bytes).
+   376                                  ; For errors which it does detect, it just beeps once and hangs.  Errors (and
+   377                                  ; unsupported conditions) which it doesn't even try to detect include:
+   378                                  ;   a)  Not running on a 386 or better
+   379                                  ;   b)  Active partition is not a FAT16 partition
+   380                                  ;   c)  Root directory is more than 608Kb long.
+   381                                  ;   d)  kernel.bin more than 4Mb long
+   382                                  ;   e)  Total RAM less than 1MB plus actual size of TEST.BIN
+   383                                  ; Errors which it does check for include:
+   384                                  ;   a)  C-bit set after any int 13h
+   385                                  ;   b)  No active partition
+   386                                  ;   c)  No "kernel.bin" in the root directory
+   387                                  ;
+   388                                  ;    If this were a partition boot, you probably could leave out the code of
+   389                                  ; reading the MBR, and finding and reading partition boot.  Then you could
+   390                                  ; add a few error checks.  As a test boot used from a floppy, it needs to
+   391                                  ; do that extra work and you just shouldn't use it if the basic conditions
+   392                                  ; aren't valid.  As part of a large multi-boot (another example I hope to
+   393                                  ; document) it could be bigger than one sector.
+   394                                  ;_____________________________________________________________________________
+   395                                  ;
+   396                                  ; {} Documentation connected to specific source code sections:
+   397                                  ;
+   398                                  ;{0}  I wasn't sure what to assume about the CPU state when the BIOS (or
+   399                                  ; earlier boot) transfers control here.  Probably interrupts are disabled and
+   400                                  ; DS=0;  But I didn't assume that.  Assuming that could save a couple bytes
+   401                                  ; of code.
+   402                                  ;
+   403                                  ;{1}  Memory use:
+   404                                  ;  {A} The boot itself is at 0:7C00
+   405                                  ;  {B} The top of the stack is 0:800
+   406                                  ;  {C} The directory and FAT are both read in and accessed starting at 800:0
+   407                                  ;  {D} The image is read in, then copied to 1MB (physical)
+   408                                  ;  {E} The page tables are built at 9C000 physical
+   409                                  ;  {F} The image is mapped to FF800000 linear   			(originally it said 0xfff80000)
+   410                                  ;  {G} The page tables are mapped to FFC00000 linear        (originally it said 0xfffc0000)
+   411                                  ;  {H} The first 4Mb is mapped linear = physical
+   412                                  ;
+   413                                  ;{2}  Most of this code runs in "big real mode".  That allows the code to make
+   414                                  ;  int 13h (and other) BIOS calls, but also to access extended memory directly.
+   415                                  ;
+   416                                  ;{3}  I left out most error checks, and just beep once for the errors that are
+   417                                  ; checked.  That makes this code suitable for learning about pmode booting and
+   418                                  ; for test use by pmode kernel developers.  To package with an OS as end-user
+   419                                  ; boot code, you need to either take out some of this code or load from
+   420                                  ; some larger place, and add some real error messages.
+   421                                  ;
+   422                                  ;{4}  One way you might want to reduce the work of the boot is to leave the job
+   423                                  ; of enabling A20 to the kernel startup code:
+   424                                  ;  {A}  Don't enable A20 here.
+   425                                  ;  {B}  Load the image at 2Mb instead of at 1Mb.  (Only odd Megabytes are
+   426                                  ;       unusable when A20 is disabled).
+   427                                  ;  {C}  "shr eax,1" to convert 4Mb to 2Mb.
+   428                                  ; Note that the current version has a minimum memory requirement of 1Mb plus
+   429                                  ; size of the image.  This change would require 2Mb plus the size of the image.
+   430                                  ;
+   431                                  ;{5}  The first version of this code changed the value of segment registers
+   432                                  ; directly after switching to pmode.  It worked on all but one machine that I
+   433                                  ; tested it on (a 386).  On that machine, on the second switch to protected
+   434                                  ; mode, the first segment register loaded got the right selector but a bad
+   435                                  ; descriptor.  I have read that you need a JMP after to switching to pmode, but
+   436                                  ; successfully written MANY programs without that JMP and seen many more
+   437                                  ; written by others.  I guess there is a case in which a delay is required (the
+   438                                  ; usual "flush the prefetch queue" theory doesn't fit the observed facts
+   439                                  ; because I fixed the problem by changing "mov ds,cx" to "push cx", "pop ds";
+   440                                  ; They each take only two bytes in the prefetch queue.
+   441                                  ;   Further testing has shown that on a 386 you may need more than a short
+   442                                  ; instruction worth of delay after switching back to real mode.  Any memory or
+   443                                  ; I/O read is enough, so I rearranged the code to have at least one such read
+   444                                  ; between a change of CR0 bit 0 and a write to an sreg.  The "jmp short $+2"
+   445                                  ; that others recommend would work because it forces a true fetch access (on
+   446                                  ; a 386 at least).  I don't use it because I don't want to waste two bytes in
+   447                                  ; boot code.
+   448                                  ;
+   449                                  ;
+   450                                  ;{6}  Most of this code doesn't care whether interrupts are enabled or not, so
+   451                                  ; I never enable them after the initial cli.  BIOS's correctly enable
+   452                                  ; interrupts DURING the processing of int 13h, if they need interrupts.
+   453                                  ; Unfortunately, some BIOSs also enable interrupts on exit from int 13h.
+   454                                  ; Interrupts must be disable for the switch to pmode, so another cli is
+   455                                  ; required.
+   456                                  ;
+   457                                  ;{7}  Only the low half of edi is used by read_sectors, so the high half
+   458                                  ; doesn't need to be saved and restored across that use.
+   459                                  ;
+   460                                  ;{8}  I call int 8 (IRQ 0) many times.  This is done in case the code was
+   461                                  ; loaded from floppy.  It tricks the BIOS into turning the floppy motor off.
+   462                                  ; I don't like to start my pmode tests with the floppy motor on.
+   463                                  ;
+   464                                  ;{9}  The first entry in a GDT is never used by the CPU.  A zero selector is
+   465                                  ; defined as being safe to put into a segment register without loading a
+   466                                  ; descriptor from the GDT (You can't access memory through it).  I generally
+   467                                  ; use the first 6 bytes of the GDT as a self pointer.  Once you are used to
+   468                                  ; this convention, it makes code more readable.  The macros in gdt.inc set it
+   469                                  ; up.
+   470                                  ;_____________________________________________________________________________

@@ -1,0 +1,11 @@
+<context name="Zip">
+<component name="Zip" uuid="cbf871a4-5f5a-11d6-8410-0010a708e02d">
+	<version vendor="MyOS" major="1" minor="1"/>
+	<requires>
+		<interfaceref name="IVirtualMemory" uuid="2a147d6f-cab0-43b8-8b9f-4687312c101d"/>
+	</requires>
+	<provides>
+		<interfaceref name="IZipUtil" uuid="afedc4f2-5f5a-11d6-8272-0010a708e02d"/>
+	</provides>
+</component>
+</context>

@@ -1,0 +1,11 @@
+<context name="Decoding/Base64">
+<interface uuid="fe310684-a446-45a7-9e38-d7556e966166" name="IBase64" url="http://www.myos.org/Interfaces" version="1">
+
+ <!-- This decl should actually generate an in+out stream 
+ 	  Or perhaps it should be 'filter=true'
+ 	  
+ 	  Currently this decodes to Display::cout implicitly
+ -->
+ <method name="decode" kind="put" stream="true"/>
+</interface>
+</context>

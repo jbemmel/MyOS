@@ -1,0 +1,9 @@
+<!-- TODO: Remove one day, and use driver instead -->
+<context name="Devices/Display">
+<component name="Display" uuid="c706b2e4-5f59-11d6-946d-0010a708e02d">
+<version vendor="MyOS" major="1" minor="1"/>
+<provides>
+<interfaceref uuid="abe1beba-0457-4375-8a3e-48809a0d5838" name="IDisplay" version="1.1"/>
+</provides>
+</component>
+</context>

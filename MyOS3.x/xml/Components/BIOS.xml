@@ -1,0 +1,14 @@
+<context name="BIOS">
+<component name="BIOS" uuid="ea03802f-aa66-461c-8ff9-90fb7d046e5e">
+<version vendor="MyOS" major="1" minor="1"/>
+<requires>
+ <interfaceref name="IVirtualMemory" uuid="2a147d6f-cab0-43b8-8b9f-4687312c101d"/>
+ <interfaceref name="IPhysicalMemory" uuid="e87d9b4e-9a74-40a0-93ef-4f1c1d47d2e8"/> 
+ <interfaceref name="IInterruptHandling" uuid="26468cf9-fa5b-4de7-9914-eec11e667215"/> 
+ <new blockorder="0"/>
+</requires> 
+<provides>
+ <interfaceref name="IBIOS" uuid="2ebf3820-423e-47cc-b13c-07eff2a2a6a5"/>
+</provides>
+</component>
+</context>

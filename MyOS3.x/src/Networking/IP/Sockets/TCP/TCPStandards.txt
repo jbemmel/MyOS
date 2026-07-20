@@ -1,0 +1,9 @@
+TCP is a complex and multi-faceted protocol, governed my numerous standards. Here is a list I
+composed of the most important ones (found at http://www.faqs.org/rfcs/rfcxxxx.html)
+
+RFC 793: 
+RFC 813: "Window and Acknowledgement Strategy in TCP"
+RFC 879: "TCP maximum segment size and related topics" 
+
+Indirectly:
+RFC1122: "Requirements for Internet Hosts - Communication Layers"

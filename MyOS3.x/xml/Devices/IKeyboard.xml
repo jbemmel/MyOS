@@ -1,0 +1,8 @@
+<context name="Devices/Keyboard">
+<device type="char" uuid="0f8c2323-3fea-4a9e-b540-4b5ec7592697" name="IKeyboard" url="http://www.myos.org/Interfaces" version="1">
+ <native file="Devices/Keyboard/IKeyboard.inc"/>
+ <method name="sendKey" kind="put">
+ <params><param name="key" type="u32"/></params>
+ </method>
+</device>
+</context>

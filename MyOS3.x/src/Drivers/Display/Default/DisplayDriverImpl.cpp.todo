@@ -1,0 +1,17 @@
+#include "Drivers/Display/Default/DisplayDriver.h"
+#include "Devices/Display/IDisplayImpl.h"
+
+namespace MyOS { namespace Drivers { namespace Display { namespace Default {
+
+// virtual 
+myos_result_t 
+DisplayDriver::detectDevices() // INITSECTION;
+{
+	// try something static
+	static Devices::Display::IDisplayImpl impl( *this );
+	
+	impl1[0] = &impl;
+	return E_MYOS_SUCCESS;	
+}
+		
+}}}}

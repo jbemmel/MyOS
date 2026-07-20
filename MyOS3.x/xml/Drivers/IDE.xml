@@ -1,0 +1,14 @@
+<context name="Drivers/IDE/Default">
+<driver name="IDE" uuid="0e639e52-7800-4aa2-8a57-9a3c9e05d320">
+<version vendor="MyOS" major="2" minor="1"/>
+<requires>
+ <interfaceref name="IVirtualMemory" uuid="2a147d6f-cab0-43b8-8b9f-4687312c101d"/>
+ <new blockorder="0"/>
+ <interfaceref name="IInterruptHandling" uuid="26468cf9-fa5b-4de7-9914-eec11e667215"/>
+ <interfaceref name="IMultiThreading" uuid="3db93a90-a7c1-41df-9029-4e3895f9fab2"/> 
+</requires>
+<provides>
+ <deviceref name="IIDEManager" context="Devices/IDE" uuid="9abd60a9-6b81-4d69-bb19-92f5e88de4cc" version="1.1"/>
+</provides>
+</driver>
+</context>

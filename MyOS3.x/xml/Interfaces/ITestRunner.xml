@@ -1,0 +1,5 @@
+<context name="Tests">
+<interface uuid="65ccb493-30ce-4958-9d4a-3152df94bbd9" name="ITestRunner" url="http://www.myos.org/Interfaces" version="1">
+	<method name="showResults" kind="get" stream="true"/>
+</interface>
+</context>

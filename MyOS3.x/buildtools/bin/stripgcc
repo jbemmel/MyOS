@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Strips those stupid extra constructors/destructors that GCC 3.0 generates
+echo Inefficiently stripping $1
+
+# Can do [CD][12] but that strips too much...
+# Code seems to use 2nd constructor (C2)
+# STRIPSYMBOLS=`objdump -t $1 | grep C1 | awk '{ if ($2=="g" && $6!="") { print $6; }}' `
+STRIPSYMBOLS=`objdump -t $1 | grep C1 | awk '{ if ($1=="[") print $10; else print $9; }' `
+
+# Strip in for loop, to avoid failing symbols (not very efficient)
+# echo Stripping = $STRIPSYMBOLS
+for s in $STRIPSYMBOLS
+do
+   # avoid error prints
+   dummy=`objcopy -N $s $1 2>&1`
+done

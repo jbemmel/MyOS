@@ -1,0 +1,9 @@
+# File that tells Ant which dirs to include in compilation
+Tests/*
+#Tests/CommandLine/**
+# Tests/FloppyFAT/**
+# Tests/SleepTest/*
+# Tests/VM86/**
+# Tests/CDROM/**
+Tests/PingServer/**
+# Tests/WebServer/**

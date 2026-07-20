@@ -1,0 +1,8 @@
+# File that tells Ant which dirs to include in compilation
+code/Tests/*
+#code/Tests/SleepTest/*
+#code/Tests/PingServer/*
+#code/Tests/SignalTest/*
+code/Tests/ExceptionTest/*
+#code/Tests/Module/*
+#code/Tests/MMTest/*

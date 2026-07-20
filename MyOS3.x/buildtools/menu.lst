@@ -1,0 +1,32 @@
+#
+# Sample boot menu configuration file
+#
+
+# Boot automatically after 30 secs.
+timeout 30
+
+# By default, boot the first entry.
+default 0
+
+# Fallback to the second entry.
+fallback 1
+
+# For booting Sample kernel
+title  Sample kernel
+root   (hd0,0)
+kernel /kernel
+
+
+# For booting MyOS
+title  MyOS
+root (hd0,0)
+kernel /kernel.bin
+
+# For installing GRUB into the hard disk
+title Install GRUB into the hard disk
+root    (hd0,0)
+setup   (hd0)
+
+# Change the colors.
+title Change the colors
+color light-green/brown blink-red/blue

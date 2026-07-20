@@ -1,0 +1,140 @@
+/* STARTUP( DoDecompress.o ) */
+
+SECTIONS {
+
+/* To include components directly, these are needed
+_DYNAMIC_ = 0;
+_DYNAMIC_END_ = 0;
+
+PCICONFIG = 0;
+free_userspace_start = 0;
+*/
+
+__KERNEL_BASE_ = 0xFF800000;
+
+/* Under cygwin, objcopy pads until next boundary... */
+/* _START_OF_COMPRESSED_BINARY_ = ALIGN(0x200); */
+
+/* Under binutils 2.15, this does not happen */
+_START_OF_COMPRESSED_BINARY_ = .;
+__START_OF_COMPRESSED_BINARY_ = _START_OF_COMPRESSED_BINARY_;
+
+/* Could map most INIT at the end, to make discarding easier... */
+/* Note: Some code relies on this being page-aligned... */
+INIT  ALIGN(0x1000)  :	{
+   _COMPRESSED_START_LINEAR_ = .;
+   __COMPRESSED_START_LINEAR_ = _COMPRESSED_START_LINEAR_;
+   *(.text.init)
+   
+    /* Add for static initialization, see 
+     * http://www.redhat.com/docs/manuals/enterprise/RHEL-4-Manual/gnu-linker/sections.html
+	 */
+	
+	__CTOR_LIST__ = .;
+	/* LONG((__CTOR_END__ - __CTOR_LIST__) / 4 - 2) */
+    *(SORT(.ctors))
+    LONG(0)
+    __CTOR_END__ = .;
+    
+	/* Dont include the destructors
+    __DTOR_LIST__ = .;
+    LONG((__DTOR_END__ - __DTOR_LIST__) / 4 - 2)
+    *(SORT(.dtors))
+    LONG(0)
+    __DTOR_END__ = .;
+    */	
+}
+
+_START_OF_KERNEL_ = ALIGN(0x1000);
+__START_OF_KERNEL_ = _START_OF_KERNEL_;
+.text		_START_OF_KERNEL_		:	{ 
+
+/**
+ * Code that is protected against interruption by signals (upon returning from a call)
+ * This must come first, protection is based on virtual address range (anything after _SIGNAL_SAFE_END
+ * can be interrupted)
+ */
+SIGNAL_SAFE_START = .;    
+    *(.text.signal_safe)
+_SIGNAL_SAFE_END = .;
+    
+	*(.text)
+    *(SORT(.text$*))
+        
+    /* fill with 0 until next page */
+    . = ALIGN(0x1000);
+}
+__CODE_PAGES_ = (ALIGN(0x1000) - _COMPRESSED_START_LINEAR_) / 0x1000;
+
+/*
+// Instead of directly after CODE, put DATA at half of the 4Mb at 0xff800000
+// This allows the code segment to end earlier, making data non-executable
+// This is a security feature to protect against overflow attacks on the stack 
+// (same pattern can be applied for private address space with CS@DPL=3)
+*/
+
+_START_OF_DATA_ = 0xffa00000;
+__START_OF_DATA_ = _START_OF_DATA_;
+.data		_START_OF_DATA_  :	{
+	*(.data*)
+    *(.data$*)
+    *(.rodata*)
+    *(.rdata)
+    *(.rdata*)
+
+    /* Added for exception handling... */
+    *(.gcc_except_table)
+   	   
+   /* fill with 0 until end of page */
+    . = ALIGN(0x1000);
+}
+__DATA_PAGES_ = (ALIGN(0x1000) - _START_OF_DATA_) / 0x1000;
+
+__SIZE_OF_COMPRESSED_BINARY_ = ( __CODE_PAGES_ + __DATA_PAGES_ ) * 0x1000;
+
+/* IDT, GDT tables, each with 256 entries => 256*8*2 = 1 page in total
+
+   I've tried to add this to .bss and then strip it, which works fine under bochs
+   but crashes the real hw for some reason (decompress works, but clearing BSS kills)
+
+   I've found it! When I include .table in the clearing, it works!
+*/
+
+/* .bss directly follows , page aligned */
+_BSS_START_ = ALIGN(0x1000);
+__BSS_START_ = _BSS_START_;
+/* _BSS_START_PHYS_ = _BSS_START_ - 0xFF800000 + 0x100000; */
+.bss _BSS_START_	: {
+	*(.table)
+	*(.bss)
+	*(COMMON)
+_BSS_END_ = .;
+__BSS_END_ = _BSS_END_;
+/* _BSS_END_PHYS_ = _BSS_END_ - 0xFF800000 + 0x100000; */
+_BSS_SIZE_ = . - _BSS_START_;
+__BSS_SIZE_ = _BSS_SIZE_;
+}
+__BSS_PAGES_ = (ALIGN(0x1000) - _BSS_START_) / 0x1000;
+
+__KERNEL_PAGES_ = __CODE_PAGES_ + __DATA_PAGES_ + __BSS_PAGES_ ;
+
+/**
+ * Address where ELF module (e.g. atmosphere) gets loaded
+ */
+__START_OF_MODULE_ = 0xFFB00000;
+
+.tls ALIGN(0x10) : {
+	*(.tls)
+    *(.tls$)
+    *(SORT(.tls$*))
+}
+
+.reloc ALIGN(0x10) :
+{
+	*(.reloc)
+}
+
+/DISCARD/				:	{ *(.note) *(.comment) *(*) }
+
+}
+

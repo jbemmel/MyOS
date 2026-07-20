@@ -1,0 +1,90 @@
+/* STARTUP( ASContainer.o ) */
+
+OUTPUT_FORMAT(pei-i386)
+
+SECTIONS {
+
+
+/* Could map most INIT at the end, to make discarding easier... */
+/* Note: Some code relies on this being page-aligned... */
+INIT  ALIGN(0x1000)  :	{
+   *(.text.init*)
+   
+    /* Add for static initialization, see 
+     * http://www.redhat.com/docs/manuals/enterprise/RHEL-4-Manual/gnu-linker/sections.html
+	 */	
+	__CTOR_LIST__ = .;
+	/* LONG((__CTOR_END__ - __CTOR_LIST__) / 4 - 2) */
+    *(SORT(.ctors))
+    LONG(0)
+    __CTOR_END__ = .;
+    
+	/* Dont include the destructors
+    __DTOR_LIST__ = .;
+    LONG((__DTOR_END__ - __DTOR_LIST__) / 4 - 2)
+    *(SORT(.dtors))
+    LONG(0)
+    __DTOR_END__ = .;
+    */	
+}
+
+_START_OF_CODE_ = ALIGN(0x1000);
+.text	_START_OF_CODE_		:	{ 
+    *(.text*)
+    *(.gnu.linkonce.d.*)
+    *(.gnu.linkonce.t.*)
+    
+    /* fill with 0 until next page */
+    . = ALIGN(0x1000);
+}
+
+_START_OF_RODATA_ = ALIGN(0x1000);
+.rodata		_START_OF_RODATA_  :	{
+    *(.rodata*)
+
+	*(.rdata)
+    *(SORT(.rdata$*))
+    *(.eh_frame)
+
+    /* Added for exception handling... */
+    *(.gcc_except_table)
+   
+   /* fill with 0 until end of page */
+    . = ALIGN(0x1000);
+}
+
+_START_OF_DATA_ = ALIGN(0x1000);
+.data		_START_OF_DATA_  :	{
+	*(.data*)
+	
+	/* fill with 0 until end of page */
+    /* . = ALIGN(0x1000); */
+}    
+
+/* .bss directly follows, not page aligned */
+_BSS_START_ = .; /* ALIGN(0x1000); */
+.bss _BSS_START_ : {
+	*(.bss)
+	/* *(COMMON) */
+_BSS_END_ = .;
+_BSS_SIZE_ = . - _BSS_START_;
+}
+
+.tls ALIGN(0x10) : {
+	*(.tls)
+    *(.tls$)
+    *(SORT(.tls$*))
+}
+
+.reloc BLOCK(0x10) :
+{
+	*(.reloc)
+}
+
+/DISCARD/				:	{ 
+	*(.note) 
+	*(.comment) 
+	*(*) 
+}
+
+}
